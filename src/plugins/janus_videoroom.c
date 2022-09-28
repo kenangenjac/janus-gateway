@@ -6788,23 +6788,33 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
 		json_object_set_new(response, "publishers", list);
 		goto prepare_response;
 	} else if(!strcasecmp(request_text, "enable_recording")) {
-		JANUS_VALIDATE_JSON_OBJECT(root, record_parameters,
-			error_code, error_cause, TRUE,
-			JANUS_VIDEOROOM_ERROR_MISSING_ELEMENT, JANUS_VIDEOROOM_ERROR_INVALID_ELEMENT);
-		if(error_code != 0)
-			goto prepare_response;
-		json_t *record = json_object_get(root, "record");
-		gboolean recording_active = json_is_true(record);
-		JANUS_LOG(LOG_VERB, "Enable Recording: %d\n", (recording_active ? 1 : 0));
-		/* Lookup room */
-		janus_mutex_lock(&rooms_mutex);
-		janus_videoroom *videoroom = NULL;
-		error_code = janus_videoroom_access_room(root, TRUE, FALSE, &videoroom, error_cause, sizeof(error_cause));
-		if(error_code != 0) {
-			janus_mutex_unlock(&rooms_mutex);
-			goto prepare_response;
-		}
-		janus_refcount_increase(&videoroom->ref);
+        JANUS_VALIDATE_JSON_OBJECT(root, record_parameters,
+                                   error_code, error_cause, TRUE,
+                                   JANUS_VIDEOROOM_ERROR_MISSING_ELEMENT, JANUS_VIDEOROOM_ERROR_INVALID_ELEMENT);
+        if (error_code != 0)
+            goto prepare_response;
+        json_t *record = json_object_get(root, "record");
+        gboolean recording_active = json_is_true(record);
+        JANUS_LOG(LOG_INFO, "Enable Recording: %d\n", (recording_active ? 1 : 0));
+
+        //added
+        char *tempo = json_dumps(root, JSON_INDENT(4));
+        JANUS_LOG(LOG_INFO, "JSON record: %s\n", tempo);
+        free(tempo);
+
+        char *tempi = json_dumps(record, JSON_INDENT(4));
+        JANUS_LOG(LOG_INFO, "JSON record: %s\n", tempi);
+        free(tempi);
+
+        /* Lookup room */
+        janus_mutex_lock(&rooms_mutex);
+        janus_videoroom *videoroom = NULL;
+        error_code = janus_videoroom_access_room(root, TRUE, FALSE, &videoroom, error_cause, sizeof(error_cause));
+        if (error_code != 0) {
+            janus_mutex_unlock(&rooms_mutex);
+            goto prepare_response;
+        }
+        janus_refcount_increase(&videoroom->ref);
 		janus_mutex_unlock(&rooms_mutex);
 		janus_mutex_lock(&videoroom->mutex);
 		/* Set recording status */
@@ -6822,8 +6832,9 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
 					janus_mutex_lock(&participant->rec_mutex);
 					gboolean prev_recording_active = participant->recording_active;
 					participant->recording_active = recording_active;
-					JANUS_LOG(LOG_VERB, "Setting record property: %s (room %s, user %s)\n",
-						participant->recording_active ? "true" : "false", participant->room_id_str, participant->user_id_str);
+                    JANUS_LOG(LOG_INFO, "Setting record property: %s (room %s, user %s)\n",
+                              participant->recording_active ? "true" : "false", participant->room_id_str,
+                              participant->user_id_str);
 					/* Do we need to do something with the recordings right now? */
 					if(participant->recording_active != prev_recording_active) {
 						/* Something changed */
@@ -6843,18 +6854,23 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
 								temp = temp->next;
 							}
 						}
-					}
-					janus_mutex_unlock(&participant->rec_mutex);
-				}
-			}
-		}
-		janus_mutex_unlock(&videoroom->mutex);
-		janus_refcount_decrease(&videoroom->ref);
-		response = json_object();
-		json_object_set_new(response, "videoroom", json_string("success"));
-		json_object_set_new(response, "record", json_boolean(recording_active));
-		goto prepare_response;
-	} else if(!strcasecmp(request_text, "publish_remotely")) {
+                    }
+                    janus_mutex_unlock(&participant->rec_mutex);
+                }
+            }
+        }
+        janus_mutex_unlock(&videoroom->mutex);
+        janus_refcount_decrease(&videoroom->ref);
+        response = json_object();
+        json_object_set_new(response, "videoroom", json_string("success"));
+        json_object_set_new(response, "record", json_boolean(recording_active));
+
+        char *tempe = json_dumps(response, JSON_INDENT(4));
+        JANUS_LOG(LOG_INFO, "JSON response: %s\n", tempo);
+        free(tempo);
+
+        goto prepare_response;
+    } else if(!strcasecmp(request_text, "publish_remotely")) {
 		/* Configure a local publisher to restream to a remote VideoRomm instance as well */
 		JANUS_VALIDATE_JSON_OBJECT(root, publish_remotely_parameters,
 			error_code, error_cause, TRUE,

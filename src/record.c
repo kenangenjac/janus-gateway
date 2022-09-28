@@ -488,11 +488,16 @@ int janus_recorder_close(janus_recorder *recorder) {
 		return -1;
 	janus_mutex_lock_nodebug(&recorder->mutex);
 	if(recorder->file) {
-		fseek(recorder->file, 0L, SEEK_END);
-		size_t fsize = ftell(recorder->file);
-		fseek(recorder->file, 0L, SEEK_SET);
-		JANUS_LOG(LOG_INFO, "File is %zu bytes: %s\n", fsize, recorder->filename);
-	}
+        fseek(recorder->file, 0L, SEEK_END);
+        JANUS_LOG(LOG_INFO, "position of the pointer after fseek to eof %ld: \n", ftell(recorder->file));
+        size_t fsize = ftell(recorder->file);
+        fseek(recorder->file, 0L, SEEK_SET);
+
+        JANUS_LOG(LOG_INFO, "position of the pointer after fseek to start %ld: \n", ftell(recorder->file));
+        JANUS_LOG(LOG_INFO, "File is %zu bytes: %s\n", fsize, recorder->filename);
+        JANUS_LOG(LOG_INFO, "File description %s: \n", fsize, recorder->description);
+        JANUS_LOG(LOG_INFO, "File header %d: \n", fsize, recorder->header);
+    }
 	if(rec_tempname) {
 		/* We need to rename the file, to remove the temporary extension */
 		char newname[1024];
