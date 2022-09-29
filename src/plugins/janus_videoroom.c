@@ -6798,9 +6798,11 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
         JANUS_LOG(LOG_INFO, "Enable Recording: %d\n", (recording_active ? 1 : 0));
 
         //added
+        /*
         char *tempo = json_dumps(root, JSON_INDENT(4));
         JANUS_LOG(LOG_INFO, "JSON record: %s\n", tempo);
         free(tempo);
+         */
 
         /* Lookup room */
         janus_mutex_lock(&rooms_mutex);
@@ -6861,10 +6863,11 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
         json_object_set_new(response, "videoroom", json_string("success"));
         json_object_set_new(response, "record", json_boolean(recording_active));
 
-        char *tempe = json_dumps(response, JSON_INDENT(4));
+        /*
+         * char *tempe = json_dumps(response, JSON_INDENT(4));
         JANUS_LOG(LOG_INFO, "JSON response: %s\n", tempe);
         free(tempe);
-
+        */
         goto prepare_response;
     } else if(!strcasecmp(request_text, "publish_remotely")) {
 		/* Configure a local publisher to restream to a remote VideoRomm instance as well */
