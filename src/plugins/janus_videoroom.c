@@ -8442,11 +8442,13 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 		if(!video || !ps->simulcast) {
             int retVal = janus_recorder_save_frame(ps->rc, buf, len);
 
-            JANUS_LOG(LOG_INFO, "1. returns: %d", retVal);
+            JANUS_LOG(LOG_INFO, "[janus_videoroom][no video & no simulcast]\n1. returns: %d\n", retVal);
             if (ps && ps->publisher) {
-                JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
+                JANUS_LOG(LOG_INFO, "1. room_id: %ld - room_id_str: %s - name: %s\n", ps->publisher->room_id,
+                          ps->publisher->room_id_str,
                           ps->publisher->display);
-                JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
+                JANUS_LOG(LOG_INFO, "1. user_id: %ld - user_id_str: %s - name: %s\n", ps->publisher->user_id,
+                          ps->publisher->user_id_str,
                           ps->publisher->display);
             }
 
@@ -8463,11 +8465,13 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
                 rtp->ssrc = ps->vssrc[0];
                 int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
 
-                JANUS_LOG(LOG_INFO, "2. returns: %d", retVal2);
+                JANUS_LOG(LOG_INFO, "[janus_videoroom][video OR simulcast]\n2. returns: %d\n", retVal2);
                 if (ps && ps->publisher) {
-                    JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
+                    JANUS_LOG(LOG_INFO, "2. room_id: %ld - room_id_str: %s - name: %s\n", ps->publisher->room_id,
+                              ps->publisher->room_id_str,
                               ps->publisher->display);
-                    JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
+                    JANUS_LOG(LOG_INFO, "2. user_id: %ld - user_id_str: %s - name: %s\n", ps->publisher->user_id,
+                              ps->publisher->user_id_str,
                               ps->publisher->display);
                 }
 
