@@ -8443,7 +8443,7 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
             int retVal = janus_recorder_save_frame(ps->rc, buf, len);
 
             JANUS_LOG(LOG_INFO, "1. returns: %d", retVal);
-            if (ps != null && ps->publisher != null) {
+            if (ps && ps->publisher) {
                 JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
                           ps->publisher->display);
                 JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
@@ -8464,7 +8464,7 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
                 int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
 
                 JANUS_LOG(LOG_INFO, "2. returns: %d", retVal2);
-                if (ps != null && ps->publisher != null) {
+                if (ps && ps->publisher) {
                     JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
                               ps->publisher->display);
                     JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
