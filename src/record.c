@@ -495,8 +495,8 @@ int janus_recorder_close(janus_recorder *recorder) {
 
         JANUS_LOG(LOG_INFO, "position of the pointer after fseek to start %ld: \n", ftell(recorder->file));
         JANUS_LOG(LOG_INFO, "File is %zu bytes: %s\n", fsize, recorder->filename);
-        JANUS_LOG(LOG_INFO, "File description %s: \n", fsize, recorder->description);
-        JANUS_LOG(LOG_INFO, "File header %d: \n", fsize, recorder->header);
+        JANUS_LOG(LOG_INFO, "File description: %s: \n", fsize, recorder->description);
+        JANUS_LOG(LOG_INFO, "File header: %d: \n", fsize, recorder->header);
     }
 	if(rec_tempname) {
 		/* We need to rename the file, to remove the temporary extension */
