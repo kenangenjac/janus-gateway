@@ -8440,24 +8440,42 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 		rtp->type = ps->pt;
 		/* Save the frame if we're recording */
 		if(!video || !ps->simulcast) {
-			janus_recorder_save_frame(ps->rc, buf, len);
-		} else {
+            int retVal = janus_recorder_save_frame(ps->rc, buf, len);
+
+            JANUS_LOG(LOG_INFO, "1. returns: %d", retVal);
+            if (ps != null && ps->publisher != null) {
+                JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
+                          ps->publisher->display);
+                JANUS_LOG(LOG_INFO, "1. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
+                          ps->publisher->display);
+            }
+
+        } else {
 			/* We're simulcasting, save the best video quality */
 			gboolean save = janus_rtp_simulcasting_context_process_rtp(&ps->rec_simctx,
 				buf, len, ps->vssrc, ps->rid, ps->vcodec, &ps->rec_ctx, &ps->rid_mutex);
 			if(save) {
-				uint32_t seq_number = ntohs(rtp->seq_number);
-				uint32_t timestamp = ntohl(rtp->timestamp);
-				uint32_t ssrc = ntohl(rtp->ssrc);
-				janus_rtp_header_update(rtp, &ps->rec_ctx, TRUE, 0);
-				/* We use a fixed SSRC for the whole recording */
-				rtp->ssrc = ps->vssrc[0];
-				janus_recorder_save_frame(ps->rc, buf, len);
-				/* Restore the header, as it will be needed by subscribers */
-				rtp->ssrc = htonl(ssrc);
-				rtp->timestamp = htonl(timestamp);
-				rtp->seq_number = htons(seq_number);
-			}
+                uint32_t seq_number = ntohs(rtp->seq_number);
+                uint32_t timestamp = ntohl(rtp->timestamp);
+                uint32_t ssrc = ntohl(rtp->ssrc);
+                janus_rtp_header_update(rtp, &ps->rec_ctx, TRUE, 0);
+                /* We use a fixed SSRC for the whole recording */
+                rtp->ssrc = ps->vssrc[0];
+                int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
+
+                JANUS_LOG(LOG_INFO, "2. returns: %d", retVal2);
+                if (ps != null && ps->publisher != null) {
+                    JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->room_id, ps->publisher->room_id_str,
+                              ps->publisher->display);
+                    JANUS_LOG(LOG_INFO, "2. room_id: %ld - %s - %s", ps->publisher->user_id, ps->publisher->user_id_str,
+                              ps->publisher->display);
+                }
+
+                /* Restore the header, as it will be needed by subscribers */
+                rtp->ssrc = htonl(ssrc);
+                rtp->timestamp = htonl(timestamp);
+                rtp->seq_number = htons(seq_number);
+            }
 		}
 		/* Done, relay it */
 		janus_videoroom_rtp_relay_packet packet = { 0 };
