@@ -6802,10 +6802,6 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
         JANUS_LOG(LOG_INFO, "JSON record: %s\n", tempo);
         free(tempo);
 
-        char *tempi = json_dumps(record, JSON_INDENT(4));
-        JANUS_LOG(LOG_INFO, "JSON record: %s\n", tempi);
-        free(tempi);
-
         /* Lookup room */
         janus_mutex_lock(&rooms_mutex);
         janus_videoroom *videoroom = NULL;
@@ -6866,8 +6862,8 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
         json_object_set_new(response, "record", json_boolean(recording_active));
 
         char *tempe = json_dumps(response, JSON_INDENT(4));
-        JANUS_LOG(LOG_INFO, "JSON response: %s\n", tempo);
-        free(tempo);
+        JANUS_LOG(LOG_INFO, "JSON response: %s\n", tempe);
+        free(tempe);
 
         goto prepare_response;
     } else if(!strcasecmp(request_text, "publish_remotely")) {
