@@ -8335,25 +8335,29 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 						json_object_set_new(info, "videoroom", json_string(ps->talking ? "talking" : "stopped-talking"));
 						json_object_set_new(info, "room", string_ids ? json_string(videoroom->room_id_str) : json_integer(videoroom->room_id));
 						json_object_set_new(info, "id", string_ids ? json_string(participant->user_id_str) : json_integer(participant->user_id));
-						json_object_set_new(info, "mindex", json_integer(ps->mindex));
-						json_object_set_new(info, "mid", json_string(ps->mid));
-						json_object_set_new(info, "audio-level-dBov-avg", json_real(audio_dBov_avg));
-						gateway->notify_event(&janus_videoroom_plugin, session->handle, info);
-					}
-				}
-			}
-		}
-	}
+                        json_object_set_new(info, "mindex", json_integer(ps->mindex));
+                        json_object_set_new(info, "mid", json_string(ps->mid));
+                        json_object_set_new(info, "audio-level-dBov-avg", json_real(audio_dBov_avg));
+                        gateway->notify_event(&janus_videoroom_plugin, session->handle, info);
+                    }
+                }
+            }
+        }
+    }
 
-	if(ps->active && !ps->muted) {
-		janus_rtp_header *rtp = (janus_rtp_header *)buf;
-		int sc = video ? 0 : -1;
-		/* Check if we're simulcasting, and if so, keep track of the "layer" */
-		if(video && ps->simulcast) {
-			uint32_t ssrc = ntohl(rtp->ssrc);
-			if(ssrc == ps->vssrc[0])
-				sc = 0;
-			else if(ssrc == ps->vssrc[1])
+    if (ps) {
+        JANUS_LOG(LOG_INFO, "Active: %d, Muted: %d: \n", ps->active, ps->muted);
+    }
+
+    if (ps->active && !ps->muted) {
+        janus_rtp_header *rtp = (janus_rtp_header *) buf;
+        int sc = video ? 0 : -1;
+        /* Check if we're simulcasting, and if so, keep track of the "layer" */
+        if (video && ps->simulcast) {
+            uint32_t ssrc = ntohl(rtp->ssrc);
+            if (ssrc == ps->vssrc[0])
+                sc = 0;
+            else if (ssrc == ps->vssrc[1])
 				sc = 1;
 			else if(ssrc == ps->vssrc[2])
 				sc = 2;
@@ -8391,18 +8395,21 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 		gpointer value;
 		g_hash_table_iter_init(&iter, ps->rtp_forwarders);
 		while(participant->udp_sock > 0 && g_hash_table_iter_next(&iter, NULL, &value)) {
-			janus_videoroom_rtp_forwarder *rtp_forward = (janus_videoroom_rtp_forwarder *)value;
-			if(rtp_forward->is_data || (video && !rtp_forward->is_video) || (!video && rtp_forward->is_video))
-				continue;
-			/* Backup the RTP header info, as we may rewrite part of it */
-			uint32_t seq_number = ntohs(rtp->seq_number);
-			uint32_t timestamp = ntohl(rtp->timestamp);
-			int pt = rtp->type;
-			uint32_t ssrc = ntohl(rtp->ssrc);
-			/* First of all, check if we're simulcasting and if we need to forward or ignore this frame */
-			if(video && !rtp_forward->simulcast && rtp_forward->substream != sc) {
-				continue;
-			} else if(video && rtp_forward->simulcast) {
+            janus_videoroom_rtp_forwarder *rtp_forward = (janus_videoroom_rtp_forwarder *) value;
+            if (rtp_forward->is_data || (video && !rtp_forward->is_video) || (!video && rtp_forward->is_video)) {
+                JANUS_LOG(LOG_INFO, "Inside [8395] if block");
+                continue;
+            }
+            /* Backup the RTP header info, as we may rewrite part of it */
+            uint32_t seq_number = ntohs(rtp->seq_number);
+            uint32_t timestamp = ntohl(rtp->timestamp);
+            int pt = rtp->type;
+            uint32_t ssrc = ntohl(rtp->ssrc);
+            /* First of all, check if we're simulcasting and if we need to forward or ignore this frame */
+            if (video && !rtp_forward->simulcast && rtp_forward->substream != sc) {
+                JANUS_LOG(LOG_INFO, "Inside [8406] if block");
+                continue;
+            } else if (video && rtp_forward->simulcast) {
 				/* This is video and we're simulcasting, check if we need to forward this frame */
 				if(!janus_rtp_simulcasting_context_process_rtp(&rtp_forward->sim_context,
 						buf, len, ps->vssrc, ps->rid, ps->vcodec, &rtp_forward->context, &ps->rid_mutex))
@@ -8649,17 +8656,19 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 		janus_mutex_lock(&s->streams_mutex);
 		janus_videoroom_subscriber_stream *ss = g_hash_table_lookup(s->streams_byid, GINT_TO_POINTER(packet->mindex));
 		if(ss == NULL || ss->publisher_streams == NULL) {
-			/* No stream..? */
-			janus_mutex_unlock(&s->streams_mutex);
-			janus_refcount_decrease_nodebug(&s->ref);
-			return;
-		}
+            JANUS_LOG(LOG_INFO, "Inside ss NULL if block");
+            /* No stream..? */
+            janus_mutex_unlock(&s->streams_mutex);
+            janus_refcount_decrease_nodebug(&s->ref);
+            return;
+        }
 		janus_videoroom_publisher_stream *ps = ss->publisher_streams ? ss->publisher_streams->data : NULL;
 		if(ps == NULL || ps->type != JANUS_VIDEOROOM_MEDIA_VIDEO) {
-			janus_mutex_unlock(&s->streams_mutex);
-			janus_refcount_decrease_nodebug(&s->ref);
-			return;		/* The only feedback we handle is video related anyway... */
-		}
+            JANUS_LOG(LOG_INFO, "Inside ps NULL block");
+            janus_mutex_unlock(&s->streams_mutex);
+            janus_refcount_decrease_nodebug(&s->ref);
+            return;        /* The only feedback we handle is video related anyway... */
+        }
 		janus_refcount_increase_nodebug(&ps->ref);
 		janus_mutex_unlock(&s->streams_mutex);
 		if(janus_rtcp_has_fir(buf, len) || janus_rtcp_has_pli(buf, len)) {
