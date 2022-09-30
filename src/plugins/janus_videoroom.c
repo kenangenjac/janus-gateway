@@ -8196,18 +8196,22 @@ void janus_videoroom_setup_media(janus_plugin_session *handle) {
 	/* Media relaying can start now */
 	g_atomic_int_set(&session->started, 1);
 	if(session->participant) {
-        JANUS_LOG(LOG_INFO, "Checkpoint 1");
+        JANUS_LOG(LOG_INFO, "Checkpoint 1\n");
         /* If this is a publisher, notify all subscribers about the fact they can
          * now subscribe; if this is a subscriber, instead, ask the publisher a FIR */
         if (session->participant_type == janus_videoroom_p_type_publisher) {
-            JANUS_LOG(LOG_INFO, "Checkpoint 2");
+            JANUS_LOG(LOG_INFO, "Checkpoint 2\n");
             janus_videoroom_publisher *participant = janus_videoroom_session_get_publisher(session);
             /* Notify all other participants that there's a new boy in town */
             janus_videoroom_notify_about_publisher(participant, FALSE);
             /* Check if we need to start recording */
             janus_mutex_lock(&participant->rec_mutex);
             if ((participant->room && participant->room->record) || participant->recording_active) {
-                JANUS_LOG(LOG_INFO, "Checkpoint 3");
+                JANUS_LOG(LOG_INFO, "Checkpoint 3\n");
+                JANUS_LOG(LOG_INFO, "participant-recording-active -> %s\n",
+                          participant->recording_active ? "true" : "false");
+                JANUS_LOG(LOG_INFO, "participant-room and participant room has record -> %s\n",
+                          (participant->room && participant->room->record) ? "true" : "false");
                 GList *temp = participant->streams;
                 while (temp) {
                     janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *) temp->data;
