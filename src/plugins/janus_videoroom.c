@@ -8440,9 +8440,16 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 		rtp->type = ps->pt;
 		/* Save the frame if we're recording */
 		if(!video || !ps->simulcast) {
-            int retVal = janus_recorder_save_frame(ps->rc, buf, len);
+            if (ps->rc) {
+                JANUS_LOG(LOG_INFO, "\n1. Janus recorder - name: %s - desc: %s - codec: %s\n", ps->rc->filename,
+                          ps->rc->description, ps->rc->codec);
+            } else {
+                JANUS_LOG(LOG_INFO, "\n1. No janus recorder\n");
+            }
 
+            int retVal = janus_recorder_save_frame(ps->rc, buf, len);
             JANUS_LOG(LOG_INFO, "[janus_videoroom][no video & no simulcast]\n1. returns: %d\n", retVal);
+
             if (ps && ps->publisher) {
                 JANUS_LOG(LOG_INFO, "1. room_id: %ld - room_id_str: %s - name: %s\n", ps->publisher->room_id,
                           ps->publisher->room_id_str,
@@ -8463,9 +8470,17 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
                 janus_rtp_header_update(rtp, &ps->rec_ctx, TRUE, 0);
                 /* We use a fixed SSRC for the whole recording */
                 rtp->ssrc = ps->vssrc[0];
-                int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
 
+                if (ps->rc) {
+                    JANUS_LOG(LOG_INFO, "\n2. Janus recorder - name: %s - desc: %s - codec: %s\n", ps->rc->filename,
+                              ps->rc->description, ps->rc->codec);
+                } else {
+                    JANUS_LOG(LOG_INFO, "\n2. No janus recorder\n",);
+                }
+
+                int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
                 JANUS_LOG(LOG_INFO, "[janus_videoroom][video OR simulcast]\n2. returns: %d\n", retVal2);
+
                 if (ps && ps->publisher) {
                     JANUS_LOG(LOG_INFO, "2. room_id: %ld - room_id_str: %s - name: %s\n", ps->publisher->room_id,
                               ps->publisher->room_id_str,
