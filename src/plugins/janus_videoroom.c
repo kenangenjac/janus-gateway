@@ -6834,21 +6834,31 @@ static json_t *janus_videoroom_process_synchronous_request(janus_videoroom_sessi
 					/* Do we need to do something with the recordings right now? */
 					if(participant->recording_active != prev_recording_active) {
 						/* Something changed */
-						if(!participant->recording_active) {
-							/* Not recording (anymore?) */
-							janus_videoroom_recorder_close(participant);
-						} else if(participant->recording_active && g_atomic_int_get(&participant->session->started)) {
-							/* We've started recording, send a PLI and go on */
-							GList *temp = participant->streams;
-							while(temp) {
-								janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
-								janus_videoroom_recorder_create(ps);
-								if(ps->type == JANUS_VIDEOROOM_MEDIA_VIDEO) {
-									/* Send a PLI */
-									janus_videoroom_reqpli(ps, "Recording video");
-								}
-								temp = temp->next;
-							}
+						if (!participant->recording_active) {
+                            /* Not recording (anymore?) */
+                            janus_videoroom_recorder_close(participant);
+
+                            JANUS_LOG(LOG_INFO, "[6841] Recorder closed for participant: %s\n",
+                                      participant->user_id_str);
+
+                        } else if (participant->recording_active && g_atomic_int_get(&participant->session->started)) {
+                            /* We've started recording, send a PLI and go on */
+                            GList *temp = participant->streams;
+                            while (temp) {
+                                janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *) temp->data;
+                                janus_videoroom_recorder_create(ps);
+
+                                if (ps && ps->publisher) {
+                                    JANUS_LOG(LOG_INFO, "[6851] Created recorder for user: %s - room: %s\n",
+                                              ps->publisher->user_id_str, ps->publisher->room_id_str);
+                                }
+
+                                if (ps->type == JANUS_VIDEOROOM_MEDIA_VIDEO) {
+                                    /* Send a PLI */
+                                    janus_videoroom_reqpli(ps, "Recording video");
+                                }
+                                temp = temp->next;
+                            }
 						}
                     }
                     janus_mutex_unlock(&participant->rec_mutex);
@@ -8197,10 +8207,16 @@ void janus_videoroom_setup_media(janus_plugin_session *handle) {
 			if((participant->room && participant->room->record) || participant->recording_active) {
 				GList *temp = participant->streams;
 				while(temp) {
-					janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
-					janus_videoroom_recorder_create(ps);
-					temp = temp->next;
-				}
+                    janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *) temp->data;
+                    janus_videoroom_recorder_create(ps);
+
+                    if (ps && ps->publisher) {
+                        JANUS_LOG(LOG_INFO, "[8213] Created recorder for user: %s - room: %s\n",
+                                  ps->publisher->user_id_str, ps->publisher->room_id_str);
+                    }
+
+                    temp = temp->next;
+                }
 				participant->recording_active = TRUE;
 			}
 			janus_mutex_unlock(&participant->rec_mutex);
@@ -8927,22 +8943,25 @@ static void janus_videoroom_hangup_media_internal(gpointer session_data) {
 	g_atomic_int_set(&session->dataready, 0);
 	/* Send an event to the browser and tell the PeerConnection is over */
 	if(session->participant_type == janus_videoroom_p_type_publisher) {
-		/* This publisher just 'unpublished' */
-		janus_videoroom_publisher *participant = janus_videoroom_session_get_publisher(session);
-		/* Get rid of the recorders, if available */
-		janus_mutex_lock(&participant->rec_mutex);
-		g_free(participant->recording_base);
-		participant->recording_base = NULL;
-		janus_videoroom_recorder_close(participant);
-		janus_mutex_unlock(&participant->rec_mutex);
-		participant->acodec = JANUS_AUDIOCODEC_NONE;
-		participant->vcodec = JANUS_VIDEOCODEC_NONE;
-		participant->firefox = FALSE;
-		participant->e2ee = FALSE;
-		/* Get rid of streams */
-		janus_mutex_lock(&participant->streams_mutex);
-		GList *subscribers = NULL;
-		GList *temp = participant->streams;
+        /* This publisher just 'unpublished' */
+        janus_videoroom_publisher *participant = janus_videoroom_session_get_publisher(session);
+        /* Get rid of the recorders, if available */
+        janus_mutex_lock(&participant->rec_mutex);
+        g_free(participant->recording_base);
+        participant->recording_base = NULL;
+        janus_videoroom_recorder_close(participant);
+
+        JANUS_LOG(LOG_INFO, "[8953] Recorder closed for participant: %s\n", participant->user_id_str);
+
+        janus_mutex_unlock(&participant->rec_mutex);
+        participant->acodec = JANUS_AUDIOCODEC_NONE;
+        participant->vcodec = JANUS_VIDEOCODEC_NONE;
+        participant->firefox = FALSE;
+        participant->e2ee = FALSE;
+        /* Get rid of streams */
+        janus_mutex_lock(&participant->streams_mutex);
+        GList *subscribers = NULL;
+        GList *temp = participant->streams;
 		while(temp) {
 			janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
 			/* Close all subscriptions to this stream */
@@ -10419,20 +10438,28 @@ static void *janus_videoroom_handler(void *data) {
 				if(participant->recording_active != prev_recording_active) {
 					/* Something changed */
 					if(!participant->recording_active) {
-						/* Not recording (anymore?) */
-						janus_videoroom_recorder_close(participant);
-					} else if(participant->recording_active && g_atomic_int_get(&participant->session->started)) {
+                        /* Not recording (anymore?) */
+                        janus_videoroom_recorder_close(participant);
+
+                        JANUS_LOG(LOG_INFO, "[10443] Recorder closed for participant: %s\n", participant->user_id_str);
+                    } else if(participant->recording_active && g_atomic_int_get(&participant->session->started)) {
 						/* We've started recording, send a PLI/FIR and go on */
 						GList *temp = participant->streams;
 						while(temp) {
-							janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
-							janus_videoroom_recorder_create(ps);
-							if(ps->type == JANUS_VIDEOROOM_MEDIA_VIDEO) {
-								/* Send a PLI */
-								janus_videoroom_reqpli(ps, "Recording video");
-							}
-							temp = temp->next;
-						}
+                            janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *) temp->data;
+                            janus_videoroom_recorder_create(ps);
+
+                            if (ps && ps->publisher) {
+                                JANUS_LOG(LOG_INFO, "[10447] Created recorder for user: %s - room: %s\n",
+                                          ps->publisher->user_id_str, ps->publisher->room_id_str);
+                            }
+
+                            if (ps->type == JANUS_VIDEOROOM_MEDIA_VIDEO) {
+                                /* Send a PLI */
+                                janus_videoroom_reqpli(ps, "Recording video");
+                            }
+                            temp = temp->next;
+                        }
 					}
 				}
 				janus_mutex_unlock(&participant->rec_mutex);
@@ -12415,10 +12442,16 @@ static void *janus_videoroom_handler(void *data) {
 				if(videoroom->record || participant->recording_active) {
 					GList *temp = participant->streams;
 					while(temp) {
-						janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
-						janus_videoroom_recorder_create(ps);
-						temp = temp->next;
-					}
+                        janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *) temp->data;
+                        janus_videoroom_recorder_create(ps);
+
+                        if (ps && ps->publisher) {
+                            JANUS_LOG(LOG_INFO, "[12443] Created recorder for user: %s - room: %s\n",
+                                      ps->publisher->user_id_str, ps->publisher->room_id_str);
+                        }
+
+                        temp = temp->next;
+                    }
 					participant->recording_active = TRUE;
 				}
 				janus_mutex_unlock(&participant->rec_mutex);
@@ -13279,25 +13312,28 @@ static void *janus_videoroom_remote_publisher_thread(void *user_data) {
 				}
 				/* Now handle the packet as if coming from a regular publisher */
 				janus_refcount_increase_nodebug(&publisher->ref);
-				janus_videoroom_incoming_rtp_internal(publisher->session, publisher, &pkt);
-			}
-		}
-	}
-	/* If we got here, the remote publisher has been removed from the
-	 * room: let's notify all other publishers in the room */
-	janus_mutex_lock(&publisher->rec_mutex);
-	g_free(publisher->recording_base);
-	publisher->recording_base = NULL;
-	janus_videoroom_recorder_close(publisher);
-	janus_mutex_unlock(&publisher->rec_mutex);
-	publisher->acodec = JANUS_AUDIOCODEC_NONE;
-	publisher->vcodec = JANUS_VIDEOCODEC_NONE;
-	publisher->firefox = FALSE;
-	publisher->e2ee = FALSE;
-	/* Get rid of streams */
-	janus_mutex_lock(&publisher->streams_mutex);
-	GList *subscribers = NULL;
-	temp = publisher->streams;
+                janus_videoroom_incoming_rtp_internal(publisher->session, publisher, &pkt);
+            }
+        }
+    }
+    /* If we got here, the remote publisher has been removed from the
+     * room: let's notify all other publishers in the room */
+    janus_mutex_lock(&publisher->rec_mutex);
+    g_free(publisher->recording_base);
+    publisher->recording_base = NULL;
+    janus_videoroom_recorder_close(publisher);
+
+    JANUS_LOG(LOG_INFO, "[13325] Recorder closed for participant: %s\n", participant->user_id_str);
+
+    janus_mutex_unlock(&publisher->rec_mutex);
+    publisher->acodec = JANUS_AUDIOCODEC_NONE;
+    publisher->vcodec = JANUS_VIDEOCODEC_NONE;
+    publisher->firefox = FALSE;
+    publisher->e2ee = FALSE;
+    /* Get rid of streams */
+    janus_mutex_lock(&publisher->streams_mutex);
+    GList *subscribers = NULL;
+    temp = publisher->streams;
 	while(temp) {
 		janus_videoroom_publisher_stream *ps = (janus_videoroom_publisher_stream *)temp->data;
 		/* Close all subscriptions to this stream */
