@@ -13323,7 +13323,7 @@ static void *janus_videoroom_remote_publisher_thread(void *user_data) {
     publisher->recording_base = NULL;
     janus_videoroom_recorder_close(publisher);
 
-    JANUS_LOG(LOG_INFO, "[13325] Recorder closed for participant: %s\n", participant->user_id_str);
+    JANUS_LOG(LOG_INFO, "[13325] Recorder closed for publisher: %s\n", publisher->user_id_str);
 
     janus_mutex_unlock(&publisher->rec_mutex);
     publisher->acodec = JANUS_AUDIOCODEC_NONE;
