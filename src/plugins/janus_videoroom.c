@@ -8475,7 +8475,7 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
                     JANUS_LOG(LOG_INFO, "\n2. Janus recorder - name: %s - desc: %s - codec: %s\n", ps->rc->filename,
                               ps->rc->description, ps->rc->codec);
                 } else {
-                    JANUS_LOG(LOG_INFO, "\n2. No janus recorder\n",);
+                    JANUS_LOG(LOG_INFO, "\n2. No janus recorder\n");
                 }
 
                 int retVal2 = janus_recorder_save_frame(ps->rc, buf, len);
