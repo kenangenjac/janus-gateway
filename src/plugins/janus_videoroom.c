@@ -8271,7 +8271,9 @@ void janus_videoroom_incoming_rtp(janus_plugin_session *handle, janus_plugin_rtp
 	janus_videoroom_incoming_rtp_internal(session, participant, pkt);
 }
 static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *session, janus_videoroom_publisher *participant, janus_plugin_rtp *pkt) {
+	JANUS_LOG(LOG_INFO, "rtp_internal %s\n", participant->user_id_str);
 	if(g_atomic_int_get(&participant->destroyed) || participant->kicked || !participant->streams || participant->room == NULL) {
+		JANUS_LOG(LOG_INFO, "8276\n");
 		janus_videoroom_publisher_dereference_nodebug(participant);
 		return;
 	}
@@ -8493,6 +8495,7 @@ static void janus_videoroom_incoming_rtp_internal(janus_videoroom_session *sessi
 			/* We're simulcasting, save the best video quality */
 			gboolean save = janus_rtp_simulcasting_context_process_rtp(&ps->rec_simctx,
 				buf, len, ps->vssrc, ps->rid, ps->vcodec, &ps->rec_ctx, &ps->rid_mutex);
+			JANUS_LOG(LOG_INFO, "Save: %d\n", (save ? 1 : 0));
 			if(save) {
                 uint32_t seq_number = ntohs(rtp->seq_number);
                 uint32_t timestamp = ntohl(rtp->timestamp);
