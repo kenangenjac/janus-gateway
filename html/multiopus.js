@@ -81,14 +81,12 @@ $(document).ready(function() {
 									Janus.debug("Trying a createOffer too (audio/video sendrecv)");
 									echotest.createOffer(
 										{
-											// Use our stream, don't do a getUserMedia
-											stream: localStream,
-											// No media provided: by default, it's sendrecv for audio and video
-											media: { data: true },	// Let's negotiate data channels as well
-											// If you want to test simulcasting (Chrome and Firefox only), then
-											// pass a ?simulcast=true when opening this demo page: it will turn
-											// the following 'simulcast' property to pass to janus.js to true
-											simulcast: doSimulcast,
+											// We provide our own stream, plus data channels
+											tracks: [
+												{ type: 'audio', capture: localStream.getAudioTracks()[0], recv: true },
+												{ type: 'video', capture: localStream.getVideoTracks()[0], recv: true },
+												{ type: 'data' }
+											],
 											customizeSdp(jsep) {
 												// Offer multiopus
 												jsep.sdp = jsep.sdp
@@ -210,17 +208,6 @@ $(document).ready(function() {
 									Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + ":", track);
 									if(!on) {
 										// Track removed, get rid of the stream and the rendering
-										var stream = remoteTracks[mid];
-										if(stream) {
-											try {
-												var tracks = stream.getTracks();
-												for(var i in tracks) {
-													var mst = tracks[i];
-													if(mst)
-														mst.stop();
-												}
-											} catch(e) {}
-										}
 										$('#peervideo' + mid).remove();
 										if(track.kind === "video") {
 											remoteVideos--;

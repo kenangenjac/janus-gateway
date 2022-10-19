@@ -173,17 +173,6 @@ $(document).ready(function() {
 									Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + ":", track);
 									if(!on) {
 										// Track removed, get rid of the stream and the rendering
-										var stream = remoteTracks[mid];
-										if(stream) {
-											try {
-												var tracks = stream.getTracks();
-												for(var i in tracks) {
-													var mst = tracks[i];
-													if(mst)
-														mst.stop();
-												}
-											} catch(e) {}
-										}
 										$('#peervideo' + mid).remove();
 										if(track.kind === "video") {
 											remoteVideos--;
@@ -406,13 +395,16 @@ function createCanvas() {
 				Janus.debug("Sending message:", body);
 				echotest.send({ message: body });
 				Janus.debug("Trying a createOffer too (audio/video sendrecv)");
+				// We need to pass the canvas MediaStream tracks we
+				// captured here, so we tell janus.js to use those
+				let canvasTracks = [];
+				if(canvasStream.getAudioTracks().length > 0)
+					canvasTracks.push({ type: 'audio', capture: canvasStream.getAudioTracks()[0], recv: true });
+				if(canvasStream.getVideoTracks().length > 0)
+					canvasTracks.push({ type: 'video', capture: canvasStream.getVideoTracks()[0], recv: true });
 				echotest.createOffer(
 					{
-						stream: canvasStream,	// Let's pass the canvas MediaStream
-						// If you want to test simulcasting (Chrome and Firefox only), then
-						// pass a ?simulcast=true when opening this demo page: it will turn
-						// the following 'simulcast' property to pass to janus.js to true
-						simulcast: doSimulcast,
+						tracks: canvasTracks,
 						success: function(jsep) {
 							Janus.debug("Got SDP!", jsep);
 							echotest.send({ message: body, jsep: jsep });

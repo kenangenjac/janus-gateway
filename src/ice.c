@@ -1644,6 +1644,7 @@ static void janus_ice_webrtc_free(janus_ice_handle *handle) {
 		return;
 	}
 	handle->agent_created = 0;
+	handle->agent_started = 0;
 	if(handle->pc != NULL) {
 		janus_ice_peerconnection_destroy(handle->pc);
 		handle->pc = NULL;
@@ -1793,6 +1794,18 @@ static void janus_ice_peerconnection_free(const janus_refcount *pc_ref) {
 	pc->remote_candidates = NULL;
 	g_free(pc->selected_pair);
 	pc->selected_pair = NULL;
+	if(pc->payload_types != NULL)
+		g_hash_table_destroy(pc->payload_types);
+	pc->payload_types = NULL;
+	if(pc->clock_rates != NULL)
+		g_hash_table_destroy(pc->clock_rates);
+	pc->clock_rates = NULL;
+	if(pc->rtx_payload_types != NULL)
+		g_hash_table_destroy(pc->rtx_payload_types);
+	pc->rtx_payload_types = NULL;
+	if(pc->rtx_payload_types_rev != NULL)
+		g_hash_table_destroy(pc->rtx_payload_types_rev);
+	pc->rtx_payload_types_rev = NULL;
 	g_free(pc);
 	pc = NULL;
 }
@@ -1856,6 +1869,10 @@ static void janus_ice_peerconnection_medium_dereference(janus_ice_peerconnection
 static void janus_ice_peerconnection_medium_free(const janus_refcount *medium_ref) {
 	janus_ice_peerconnection_medium *medium = janus_refcount_containerof(medium_ref, janus_ice_peerconnection_medium, ref);
 	g_free(medium->mid);
+	g_free(medium->msid);
+	g_free(medium->mstid);
+	g_free(medium->remote_msid);
+	g_free(medium->remote_mstid);
 	g_free(medium->rid[0]);
 	medium->rid[0] = NULL;
 	g_free(medium->rid[1]);
@@ -2038,6 +2055,7 @@ static void janus_ice_cb_candidate_gathering_done(NiceAgent *agent, guint stream
 		JANUS_LOG(LOG_ERR, "[%"SCNu64"]  No stream %d??\n", handle->handle_id, stream_id);
 		return;
 	}
+	pc->gathered = janus_get_monotonic_time();
 	pc->cdone = 1;
 	/* If we're doing full-trickle, send an event to the user too */
 	if(janus_full_trickle_enabled) {
@@ -4178,7 +4196,7 @@ static gboolean janus_ice_outgoing_rtcp_handle(gpointer user_data) {
 			if(rtcp_ctx == NULL) {
 				sr->si.rtp_ts = htonl(medium->last_rtp_ts);	/* FIXME */
 			} else {
-				int64_t ntp = tv.tv_sec*G_USEC_PER_SEC + tv.tv_usec;
+				int64_t ntp = ((int64_t)tv.tv_sec)*G_USEC_PER_SEC + tv.tv_usec;
 				uint32_t rtp_ts = ((ntp-medium->last_ntp_ts)*(rtcp_ctx->tb))/1000000 + medium->last_rtp_ts;
 				sr->si.rtp_ts = htonl(rtp_ts);
 			}
@@ -4269,15 +4287,15 @@ static gboolean janus_ice_outgoing_stats_handle(gpointer user_data) {
 				gint64 last = medium->in_stats.info[vindex].updated;
 				if(!medium->in_stats.info[vindex].notified_lastsec && last &&
 						!medium->in_stats.info[vindex].bytes_lastsec && !medium->in_stats.info[vindex].bytes_lastsec_temp &&
-							now-last >= (gint64)no_media_timer*G_USEC_PER_SEC) {
+							now - last >= (gint64)no_media_timer*G_USEC_PER_SEC) {
 					/* We missed more than no_second_timer seconds of video! */
 					medium->in_stats.info[vindex].notified_lastsec = TRUE;
 					if(vindex == 0) {
-						JANUS_LOG(LOG_WARN, "[%"SCNu64"] Didn't receive %s for more than a second...\n",
-							handle->handle_id, medium->type == JANUS_MEDIA_VIDEO ? "video" : "audio");
+						JANUS_LOG(LOG_WARN, "[%"SCNu64"] Didn't receive %s for more than %u second(s)...\n",
+							handle->handle_id, medium->type == JANUS_MEDIA_VIDEO ? "video" : "audio", no_media_timer);
 					} else {
-						JANUS_LOG(LOG_WARN, "[%"SCNu64"] Didn't receive %s (substream #%d) for more than a second...\n",
-							handle->handle_id, medium->type == JANUS_MEDIA_VIDEO ? "video" : "audio", vindex);
+						JANUS_LOG(LOG_WARN, "[%"SCNu64"] Didn't receive %s (substream #%d) for more than %u second(s)...\n",
+							handle->handle_id, medium->type == JANUS_MEDIA_VIDEO ? "video" : "audio", vindex, no_media_timer);
 					}
 					janus_ice_notify_media(handle, medium->mid, medium->type == JANUS_MEDIA_VIDEO, medium->rtcp_ctx[1] != NULL, vindex, FALSE);
 				}
@@ -4382,6 +4400,8 @@ static gboolean janus_ice_outgoing_traffic_handle(janus_ice_handle *handle, janu
 		}
 		guint count = g_slist_length(candidates);
 		if(pc != NULL && count > 0) {
+			if(handle->agent_started == 0)
+				handle->agent_started = janus_get_monotonic_time();
 			int added = nice_agent_set_remote_candidates(handle->agent, pc->stream_id, pc->component_id, candidates);
 			if(added < 0 || (guint)added != count) {
 				JANUS_LOG(LOG_WARN, "[%"SCNu64"] Failed to add some remote candidates (added %u, expected %u)\n",
@@ -4946,8 +4966,14 @@ void janus_ice_relay_rtcp_internal(janus_ice_handle *handle, janus_ice_peerconne
 }
 
 void janus_ice_relay_rtcp(janus_ice_handle *handle, janus_plugin_rtcp *packet) {
+	if(!handle || packet == NULL || packet->buffer == NULL)
+		return;
 	/* Find the right medium instance */
 	janus_mutex_lock(&handle->mutex);
+	if(!handle->pc || !handle->pc->media || !handle->pc->media_bytype) {
+		janus_mutex_unlock(&handle->mutex);
+		return;
+	}
 	janus_ice_peerconnection_medium *medium = (packet->mindex != -1 ?
 			g_hash_table_lookup(handle->pc->media, GINT_TO_POINTER(packet->mindex)) :
 			g_hash_table_lookup(handle->pc->media_bytype,
