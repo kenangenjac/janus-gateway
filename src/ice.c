@@ -843,7 +843,7 @@ static void janus_ice_notify_media(janus_ice_handle *handle, char *mid, gboolean
 void janus_ice_notify_hangup(janus_ice_handle *handle, const char *reason) {
 	if(handle == NULL)
 		return;
-	/* Prepare JSON event to notify user/application */
+    /* Prepare JSON event to notify user/application */
 	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Notifying WebRTC hangup; %p\n", handle->handle_id, handle);
 	janus_session *session = (janus_session *)handle->session;
 	if(session == NULL)
@@ -852,22 +852,46 @@ void janus_ice_notify_hangup(janus_ice_handle *handle, const char *reason) {
 	json_object_set_new(event, "janus", json_string("hangup"));
 	json_object_set_new(event, "session_id", json_integer(session->session_id));
 	json_object_set_new(event, "sender", json_integer(handle->handle_id));
+
 	if(opaqueid_in_api && handle->opaque_id != NULL)
 		json_object_set_new(event, "opaque_id", json_string(handle->opaque_id));
-	if(reason != NULL)
-		json_object_set_new(event, "reason", json_string(reason));
+	if(reason != NULL) {
+        json_object_set_new(event, "reason", json_string(reason));
+        JANUS_LOG(LOG_INFO, "\nYES REASON...\n");
+    } else {
+        JANUS_LOG(LOG_INFO, "\nNO REASON...\n");
+    }
+
+    char* printEvent = json_dumps(event, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nEvent: %s\n", printEvent);
+    free(printEvent);
+
 	/* Send the event */
 	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Sending event to transport...; %p\n", handle->handle_id, handle);
 	janus_session_notify_event(session, event);
 	/* Notify event handlers as well */
 	if(janus_events_is_enabled()) {
+        JANUS_LOG(LOG_INFO, "\nEVENTS ENABLED...\n");
 		json_t *info = json_object();
 		json_object_set_new(info, "connection", json_string("hangup"));
-		if(reason != NULL)
-			json_object_set_new(info, "reason", json_string(reason));
-		janus_events_notify_handlers(JANUS_EVENT_TYPE_WEBRTC, JANUS_EVENT_SUBTYPE_WEBRTC_STATE,
+		if(reason != NULL) {
+            json_object_set_new(info, "reason", json_string(reason));
+            JANUS_LOG(LOG_INFO, "\nYES REASON...\n");
+        }
+        else {
+            JANUS_LOG(LOG_INFO, "\nNO REASON...\n");
+        }
+
+        janus_events_notify_handlers(JANUS_EVENT_TYPE_WEBRTC, JANUS_EVENT_SUBTYPE_WEBRTC_STATE,
 			session->session_id, handle->handle_id, handle->opaque_id, info);
-	}
+
+        char* printInfo = json_dumps(info, JSON_INDENT(4));
+        JANUS_LOG(LOG_INFO, "\nInfo: %s\n", printInfo);
+        free(printInfo);
+    }
+    else {
+        JANUS_LOG(LOG_INFO, "\nJANUS EVENTS NOT ENABLED...\n");
+    }
 }
 
 
@@ -1578,6 +1602,9 @@ static void janus_ice_plugin_session_free(const janus_refcount *app_handle_ref) 
 void janus_ice_webrtc_hangup(janus_ice_handle *handle, const char *reason) {
 	if(handle == NULL)
 		return;
+
+    JANUS_LOG(LOG_INFO, "ice_webrtc_hangup, reason: %s\n", reason);
+
 	g_atomic_int_set(&handle->closepc, 0);
 	if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_ALERT))
 		return;
@@ -4405,6 +4432,7 @@ static gboolean janus_ice_outgoing_traffic_handle(janus_ice_handle *handle, janu
 		}
 		return G_SOURCE_CONTINUE;
 	} else if(pkt == &janus_ice_hangup_peerconnection) {
+        JANUS_LOG(LOG_INFO, "4435, janus_ice_hangup_peerconnection\n");
 		/* The media session is over, send an alert on all streams and components */
 		if(handle->pc && janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_READY)) {
 			janus_dtls_srtp_send_alert(handle->pc->dtls);

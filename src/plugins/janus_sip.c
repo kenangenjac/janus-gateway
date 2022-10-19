@@ -2628,6 +2628,9 @@ void janus_sip_hangup_media(janus_plugin_session *handle) {
 }
 
 static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
+
+    JANUS_LOG(LOG_INFO, "HANGUP_MEDIA_INTERNAL\n");
+
 	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 		return;
 	janus_sip_session *session = janus_sip_lookup_session(handle);
@@ -4441,6 +4444,9 @@ static void *janus_sip_handler(void *data) {
 			nua_bye(session->stack->s_nh_i,
 				TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
 				TAG_END());
+
+            JANUS_LOG(LOG_INFO, "4448, request text hangup: %s\n", custom_headers);
+
 			janus_mutex_lock(&session->mutex);
 			g_free(session->callee);
 			session->callee = NULL;
@@ -4988,6 +4994,9 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				}
 			} else if(callstate == nua_callstate_terminated &&
 					(session->stack->s_nh_i == nh || session->stack->s_nh_i == NULL)) {
+
+                JANSU_LOG(LOG_INFO, "\nTERMINATED...\n");
+
 				session->media.earlymedia = FALSE;
 				session->media.update = FALSE;
 				session->media.autoaccept_reinvites = TRUE;
@@ -5001,19 +5010,40 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "event", json_string("hangup"));
 				json_object_set_new(calling, "code", json_integer(status));
 				json_object_set_new(calling, "reason", json_string(phrase ? phrase : ""));
-				if(session->hangup_reason_header)
-					json_object_set_new(calling, "reason_header", json_string(session->hangup_reason_header));
-				if(session->hangup_reason_header_protocol)
-					json_object_set_new(calling, "reason_header_protocol", json_string(session->hangup_reason_header_protocol));
-				if(session->hangup_reason_header_cause)
-					json_object_set_new(calling, "reason_header_cause", json_string(session->hangup_reason_header_cause));
+				if(session->hangup_reason_header) {
+                    json_object_set_new(calling, "reason_header", json_string(session->hangup_reason_header));
+                    JANUS_LOG(LOG_INFO, "HAS REASON_HEADER: %s\n", session->hangup_reason_header);
+                }
+				if(session->hangup_reason_header_protocol) {
+                    json_object_set_new(calling, "reason_header_protocol",
+                                        json_string(session->hangup_reason_header_protocol));
+                    JANUS_LOG(LOG_INFO, "HAS REASON_HEADER_PROTOCOL: %s\n", session->hangup_reason_header_protocol);
+                }
+				if(session->hangup_reason_header_cause) {
+                    json_object_set_new(calling, "reason_header_cause",
+                                        json_string(session->hangup_reason_header_cause));
+                    JANUS_LOG(LOG_INFO, "HAS REASON_HEADER_PROTOCOL_CAUSE %s\n", session->hangup_reason_header_cause);
+                }
 				json_object_set_new(call, "result", calling);
 				json_object_set_new(call, "call_id", json_string(session->callid));
+
+                char* printCalling = json_dumps(calling, JSON_INDENT(4));
+                JANUS_LOG(LOG_INFO, "\nCalling: %s\n", printCalling);
+                free(printCalling);
+
+                char* printCall = json_dumps(call, JSON_INDENT(4));
+                JANUS_LOG(LOG_INFO, "\nCall: %s\n", printCall);
+                free(printCall);
+
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
+
 				JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 				json_decref(call);
 				/* Also notify event handlers */
 				if(notify_events && gateway->events_is_enabled()) {
+
+                    JANUS_LOG(LOG_INFO, "NOTIFY EVENT HANDLERS\n");
+
 					json_t *info = json_object();
 					json_object_set_new(info, "event", json_string("hangup"));
 					if(session->callid)
@@ -5027,6 +5057,11 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 						json_object_set_new(info, "reason_header_protocol", json_string(session->hangup_reason_header_protocol));
 					if(session->hangup_reason_header_cause)
 						json_object_set_new(info, "reason_header_cause", json_string(session->hangup_reason_header_cause));
+
+                    char* printInfo2 = json_dumps(info, JSON_INDENT(4));
+                    JANUS_LOG(LOG_INFO, "\nInfo2: %s\n", printInfo2);
+                    free(printInfo2);
+
 					gateway->notify_event(&janus_sip_plugin, session->handle, info);
 				}
 				/* Get rid of any PeerConnection that may have been set up */
@@ -5076,16 +5111,23 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
 			break;
 		case nua_i_bye: {
+
+            JANUS_LOG(LOG_INFO, "nua_i_bye\n");
+
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
 			if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
+                JANUS_LOG(LOG_INFO, "reason_header: %s - %s\n", session->hangup_reason_header);
 				janus_sip_remove_quotes(session->hangup_reason_header);
+                JANUS_LOG(LOG_INFO, "reason_header: %s\n", session->hangup_reason_header);
 			}
 			if(sip->sip_reason && sip->sip_reason->re_protocol) {
 				session->hangup_reason_header_protocol = g_strdup(sip->sip_reason->re_protocol);
+                JANUS_LOG(LOG_INFO, "reason_header_protocol: %s\n", session->hangup_reason_header_protocol);
 			}
 			if(sip->sip_reason && sip->sip_reason->re_cause) {
 				session->hangup_reason_header_cause = g_strdup(sip->sip_reason->re_cause);
+                JANUS_LOG(LOG_INFO, "reason_header_cause: %s\n", session->hangup_reason_header_cause);
 			}
 			break;
 		}
