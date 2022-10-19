@@ -4995,7 +4995,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			} else if(callstate == nua_callstate_terminated &&
 					(session->stack->s_nh_i == nh || session->stack->s_nh_i == NULL)) {
 
-                JANSU_LOG(LOG_INFO, "\nTERMINATED...\n");
+                JANUS_LOG(LOG_INFO, "\nTERMINATED...\n");
 
 				session->media.earlymedia = FALSE;
 				session->media.update = FALSE;
@@ -5117,7 +5117,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
 			if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
-                JANUS_LOG(LOG_INFO, "reason_header: %s - %s\n", session->hangup_reason_header);
+                JANUS_LOG(LOG_INFO, "reason_header: %s\n", session->hangup_reason_header);
 				janus_sip_remove_quotes(session->hangup_reason_header);
                 JANUS_LOG(LOG_INFO, "reason_header: %s\n", session->hangup_reason_header);
 			}
