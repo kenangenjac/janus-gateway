@@ -2697,7 +2697,7 @@ static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
         json_object_set_new(event, "call_id", json_string(session->callid));
 
         char *printEvent = json_dumps(event, JSON_INDENT(4));
-        JANUS_LOG(LOG_INFO, "hangup-internal, event:\n", printEvent);
+        JANUS_LOG(LOG_INFO, "hangup-internal, event %s:\n", printEvent);
         free(printEvent);
 
         int ret = gateway->push_event(session->handle, &janus_sip_plugin, NULL, event, NULL);
