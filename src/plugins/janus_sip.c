@@ -1558,7 +1558,7 @@ static json_t *janus_sip_get_incoming_headers(const sip_t *sip, const janus_sip_
         }
         unknown_header = unknown_header->un_next;
     }
-    char *printHeaders = json_dupms(headers, JSON_INDENT(4));
+    char *printHeaders = json_dumps(headers, JSON_INDENT(4));
     JANUS_LOG(LOG_INFO, "incoming_headers - %s\n", printHeaders);
     free(printHeaders);
 
