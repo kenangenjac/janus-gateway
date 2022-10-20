@@ -258,29 +258,29 @@ void janus_events_notify_handlers(int type, int subtype, guint64 session_id, ...
 			break;
 		}
 		default:
-			JANUS_LOG(LOG_WARN, "Unknown event type '%d'\n", type);
-			json_decref(event);
-			json_decref(body);
-			va_end(args);
-			return;
-	}
-	json_object_set_new(event, "event", body);
-	va_end(args);
+            JANUS_LOG(LOG_WARN, "Unknown event type '%d'\n", type);
+            json_decref(event);
+            json_decref(body);
+            va_end(args);
+            return;
+    }
+    json_object_set_new(event, "event", body);
+    va_end(args);
 
-    char* printEvent = json_dumps(event, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nEvent: %s\n", printEvent);
+    char *printEvent = json_dumps(event, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nevetns.c - Event: %s\n", printEvent);
     free(printEvent);
 
-    char* printBody = json_dumps(body, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nBody: %s\n", printBody);
+    char *printBody = json_dumps(body, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nevetns.c - Body: %s\n", printBody);
     free(printBody);
 
-	if(!eventsenabled) {
-		json_decref(event);
-		return;
-	}
-	/* Enqueue the event */
-	g_async_queue_push(events, event);
+    if (!eventsenabled) {
+        json_decref(event);
+        return;
+    }
+    /* Enqueue the event */
+    g_async_queue_push(events, event);
 }
 
 void *janus_events_thread(void *data) {

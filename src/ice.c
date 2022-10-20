@@ -853,40 +853,39 @@ void janus_ice_notify_hangup(janus_ice_handle *handle, const char *reason) {
 	json_object_set_new(event, "session_id", json_integer(session->session_id));
 	json_object_set_new(event, "sender", json_integer(handle->handle_id));
 
-	if(opaqueid_in_api && handle->opaque_id != NULL)
-		json_object_set_new(event, "opaque_id", json_string(handle->opaque_id));
-	if(reason != NULL) {
+    if (opaqueid_in_api && handle->opaque_id != NULL)
+        json_object_set_new(event, "opaque_id", json_string(handle->opaque_id));
+    if (reason != NULL) {
         json_object_set_new(event, "reason", json_string(reason));
         JANUS_LOG(LOG_INFO, "\nYES REASON...\n");
     } else {
         JANUS_LOG(LOG_INFO, "\nNO REASON...\n");
     }
 
-    char* printEvent = json_dumps(event, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nEvent: %s\n", printEvent);
+    char *printEvent = json_dumps(event, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nice.c - Event: %s\n", printEvent);
     free(printEvent);
 
-	/* Send the event */
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Sending event to transport...; %p\n", handle->handle_id, handle);
-	janus_session_notify_event(session, event);
-	/* Notify event handlers as well */
-	if(janus_events_is_enabled()) {
+    /* Send the event */
+    JANUS_LOG(LOG_VERB, "[%"SCNu64"] Sending event to transport...; %p\n", handle->handle_id, handle);
+    janus_session_notify_event(session, event);
+    /* Notify event handlers as well */
+    if (janus_events_is_enabled()) {
         JANUS_LOG(LOG_INFO, "\nEVENTS ENABLED...\n");
-		json_t *info = json_object();
-		json_object_set_new(info, "connection", json_string("hangup"));
+        json_t *info = json_object();
+        json_object_set_new(info, "connection", json_string("hangup"));
 		if(reason != NULL) {
             json_object_set_new(info, "reason", json_string(reason));
             JANUS_LOG(LOG_INFO, "\nYES REASON...\n");
-        }
-        else {
+        } else {
             JANUS_LOG(LOG_INFO, "\nNO REASON...\n");
         }
 
         janus_events_notify_handlers(JANUS_EVENT_TYPE_WEBRTC, JANUS_EVENT_SUBTYPE_WEBRTC_STATE,
-			session->session_id, handle->handle_id, handle->opaque_id, info);
+                                     session->session_id, handle->handle_id, handle->opaque_id, info);
 
-        char* printInfo = json_dumps(info, JSON_INDENT(4));
-        JANUS_LOG(LOG_INFO, "\nInfo: %s\n", printInfo);
+        char *printInfo = json_dumps(info, JSON_INDENT(4));
+        JANUS_LOG(LOG_INFO, "\nice.c - Info: %s\n", printInfo);
         free(printInfo);
     }
     else {
