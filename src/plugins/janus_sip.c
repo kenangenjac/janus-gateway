@@ -1600,8 +1600,8 @@ static void janus_sip_random_string(int length, char *buffer) {
 
 static void janus_sip_parse_custom_headers(json_t *root, char *custom_headers, size_t size) {
     char *printCustomHeadersRoot = json_dumps(root, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nRoot in custom headers: %s", printCustomHeaders);
-    free(printCustomHeaders);
+    JANUS_LOG(LOG_INFO, "\nRoot in custom headers: %s", printCustomHeadersRoot);
+    free(printCustomHeadersRoot);
 
     custom_headers[0] = '\0';
     json_t *headers = json_object_get(root, "headers");
@@ -4470,7 +4470,7 @@ static void *janus_sip_handler(void *data) {
                     TAG_END());
 
             JANUS_LOG(LOG_INFO, "\nSECOND NUA_BYE, 4472\n");
-            char *printRoot = json_dumps(root, JSON_INDENTS(4));
+            char *printRoot = json_dumps(root, JSON_INDENT(4));
             JANUS_LOG(LOG_INFO, "\nRoot to be parsed: %s\n", printRoot);
             free(printRoot);
             JANUS_LOG(LOG_INFO, "4448, request text hangup: %s\n", custom_headers);
