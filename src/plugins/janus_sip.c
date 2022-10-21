@@ -1599,30 +1599,40 @@ static void janus_sip_random_string(int length, char *buffer) {
 }
 
 static void janus_sip_parse_custom_headers(json_t *root, char *custom_headers, size_t size) {
-	custom_headers[0] = '\0';
-	json_t *headers = json_object_get(root, "headers");
-	if(headers) {
-		if(json_object_size(headers) > 0) {
-			/* Parse custom headers */
-			const char *key = NULL;
-			json_t *value = NULL;
-			void *iter = json_object_iter(headers);
-			while(iter != NULL) {
-				key = json_object_iter_key(iter);
-				value = json_object_get(headers, key);
-				if(value == NULL || !json_is_string(value)) {
-					JANUS_LOG(LOG_WARN, "Skipping header '%s': value is not a string\n", key);
-					iter = json_object_iter_next(headers, iter);
-					continue;
-				}
-				char h[255];
-				g_snprintf(h, 255, "%s: %s\r\n", key, json_string_value(value));
-				JANUS_LOG(LOG_VERB, "Adding custom header, %s\n", h);
-				janus_strlcat(custom_headers, h, size);
-				iter = json_object_iter_next(headers, iter);
-			}
-		}
-	}
+    char *printCustomHeadersRoot = json_dumps(root, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nRoot in custom headers: %s", printCustomHeaders);
+    free(printCustomHeaders);
+
+    custom_headers[0] = '\0';
+    json_t *headers = json_object_get(root, "headers");
+    if (headers) {
+        if (json_object_size(headers) > 0) {
+            /* Parse custom headers */
+            const char *key = NULL;
+            json_t *value = NULL;
+            void *iter = json_object_iter(headers);
+            while (iter != NULL) {
+                key = json_object_iter_key(iter);
+                value = json_object_get(headers, key);
+                if (value == NULL || !json_is_string(value)) {
+                    JANUS_LOG(LOG_WARN, "Skipping header '%s': value is not a string\n", key);
+                    iter = json_object_iter_next(headers, iter);
+                    continue;
+                }
+                char h[255];
+                g_snprintf(h, 255, "%s: %s\r\n", key, json_string_value(value));
+                JANUS_LOG(LOG_VERB, "Adding custom header, %s\n", h);
+                JANUS_LOG(LOG_INFO, "Adding custom header, %s\n", h);
+                janus_strlcat(custom_headers, h, size);
+                iter = json_object_iter_next(headers, iter);
+            }
+        }
+    }
+    JANUS_LOG(LOG_INFO, "Custom headers: %s\n", custom_headers);
+
+    char *HEADERS = json_dumps(headers, JSON_INDENT(4));
+    JANUS_LOG(LOG_INFO, "\nheaders_t: %s", HEADERS);
+    free(HEADERS);
 }
 
 static void janus_sip_parse_custom_contact_params(json_t *root, char *custom_params, size_t size) {
@@ -2671,20 +2681,23 @@ static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
 	janus_mutex_lock(&session->mutex);
 	if(session->stack->s_nh_i != NULL && session->callee != NULL) {
 		g_free(session->callee);
-		session->callee = NULL;
-		janus_mutex_unlock(&session->mutex);
-		/* Send a BYE */
-		session->media.earlymedia = FALSE;
-		session->media.update = FALSE;
-		session->media.autoaccept_reinvites = TRUE;
-		session->media.ready = FALSE;
-		session->media.on_hold = FALSE;
+        session->callee = NULL;
+        janus_mutex_unlock(&session->mutex);
+        /* Send a BYE */
+        session->media.earlymedia = FALSE;
+        session->media.update = FALSE;
+        session->media.autoaccept_reinvites = TRUE;
+        session->media.ready = FALSE;
+        session->media.on_hold = FALSE;
 
-		/* Send a BYE or respond with 480 */
-		if(janus_sip_call_is_established(session) || session->status == janus_sip_call_status_inviting)
-			nua_bye(session->stack->s_nh_i, TAG_END());
-		else
-			nua_respond(session->stack->s_nh_i, 480, sip_status_phrase(480), TAG_END());
+        /* Send a BYE or respond with 480 */
+        if (janus_sip_call_is_established(session) || session->status == janus_sip_call_status_inviting) {
+            nua_bye(session->stack->s_nh_i, TAG_END());
+            JANUS_LOG(LOG_INFO, "\nFIRST NUA_BYE, 2696\n");
+        } else {
+            nua_respond(session->stack->s_nh_i, 480, sip_status_phrase(480), TAG_END());
+            JANUS_LOG(LOG_INFO, "FIRST NUA_RESPOND, 2700");
+        }
 
         janus_sip_call_update_status(session, janus_sip_call_status_closing);
 
@@ -4446,26 +4459,30 @@ static void *janus_sip_handler(void *data) {
 			janus_mutex_unlock(&session->mutex);
 			session->media.earlymedia = FALSE;
 			session->media.update = FALSE;
-			session->media.autoaccept_reinvites = TRUE;
-			session->media.ready = FALSE;
-			session->media.on_hold = FALSE;
-			janus_sip_call_update_status(session, janus_sip_call_status_closing);
-			char custom_headers[2048];
-			janus_sip_parse_custom_headers(root, (char *)&custom_headers, sizeof(custom_headers));
-			nua_bye(session->stack->s_nh_i,
-				TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
-				TAG_END());
+            session->media.autoaccept_reinvites = TRUE;
+            session->media.ready = FALSE;
+            session->media.on_hold = FALSE;
+            janus_sip_call_update_status(session, janus_sip_call_status_closing);
+            char custom_headers[2048];
+            janus_sip_parse_custom_headers(root, (char *) &custom_headers, sizeof(custom_headers));
+            nua_bye(session->stack->s_nh_i,
+                    TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
+                    TAG_END());
 
+            JANUS_LOG(LOG_INFO, "\nSECOND NUA_BYE, 4472\n");
+            char *printRoot = json_dumps(root, JSON_INDENTS(4));
+            JANUS_LOG(LOG_INFO, "\nRoot to be parsed: %s\n", printRoot);
+            free(printRoot);
             JANUS_LOG(LOG_INFO, "4448, request text hangup: %s\n", custom_headers);
 
-			janus_mutex_lock(&session->mutex);
-			g_free(session->callee);
-			session->callee = NULL;
-			janus_mutex_unlock(&session->mutex);
-			/* Notify the operation */
-			result = json_object();
-			json_object_set_new(result, "event", json_string("hangingup"));
-		} else if(!strcasecmp(request_text, "recording")) {
+            janus_mutex_lock(&session->mutex);
+            g_free(session->callee);
+            session->callee = NULL;
+            janus_mutex_unlock(&session->mutex);
+            /* Notify the operation */
+            result = json_object();
+            json_object_set_new(result, "event", json_string("hangingup"));
+        } else if(!strcasecmp(request_text, "recording")) {
 			/* Start or stop recording */
 			if(!(session->status == janus_sip_call_status_inviting || /* Presume it makes sense to start recording with early media? */
 					janus_sip_call_is_established(session))) {
@@ -5638,26 +5655,33 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					session->active_calls = g_list_remove(session->active_calls, s);
 				}
 				janus_mutex_unlock(&session->mutex);
-				/* End the event loop: su_root_run() will return */
-				su_root_break(ssip->s_root);
-			}
-			break;
-		case nua_r_terminate:
-			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			break;
-	/* SIP responses */
-		case nua_r_bye:
-			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			break;
-		case nua_r_cancel:
-			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			break;
-		case nua_r_info:
-			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			/* FIXME Should we notify the user, in case the SIP INFO returned an error? */
-			break;
-		case nua_r_message:
-			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+                /* End the event loop: su_root_run() will return */
+                su_root_break(ssip->s_root);
+            }
+            break;
+        case nua_r_terminate:
+            JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
+            break;
+            /* SIP responses */
+        case nua_r_bye:
+            JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
+            JANUS_LOG(LOG_INFO, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
+            break;
+        case nua_r_cancel:
+            JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
+            break;
+        case nua_r_info:
+            JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
+            /* FIXME Should we notify the user, in case the SIP INFO returned an error? */
+            break;
+        case nua_r_message:
+            JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status,
+                      phrase ? phrase : "??");
 			/* Handle authetntication for SIP MESSAGE - eg. SippySoft Softswitch requires 401 authentication even if SIP user is registerered */
 			if(status == 401 || status == 407) {
 				const char *scheme = NULL;
@@ -5907,40 +5931,42 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session->media.has_video)
 				has_srtp = (has_srtp && session->media.has_srtp_remote_video);
 			if(session->media.require_srtp && !has_srtp) {
-				JANUS_LOG(LOG_ERR, "We asked for mandatory SRTP but didn't get any in the reply!\n");
-				janus_sdp_destroy(sdp);
-				/* Hangup immediately */
-				session->media.earlymedia = FALSE;
-				session->media.update = FALSE;
-				session->media.autoaccept_reinvites = TRUE;
-				session->media.ready = FALSE;
-				session->media.on_hold = FALSE;
-				janus_sip_call_update_status(session, janus_sip_call_status_closing);
-				nua_bye(nh, TAG_END());
-				janus_mutex_lock(&session->mutex);
-				g_free(session->callee);
-				session->callee = NULL;
-				janus_mutex_unlock(&session->mutex);
-				break;
-			}
+                JANUS_LOG(LOG_ERR, "We asked for mandatory SRTP but didn't get any in the reply!\n");
+                janus_sdp_destroy(sdp);
+                /* Hangup immediately */
+                session->media.earlymedia = FALSE;
+                session->media.update = FALSE;
+                session->media.autoaccept_reinvites = TRUE;
+                session->media.ready = FALSE;
+                session->media.on_hold = FALSE;
+                janus_sip_call_update_status(session, janus_sip_call_status_closing);
+                nua_bye(nh, TAG_END());
+                JANUS_LOG(LOG_INFO, "\nTHIRD NUA_BYE, 5939\n");
+                janus_mutex_lock(&session->mutex);
+                g_free(session->callee);
+                session->callee = NULL;
+                janus_mutex_unlock(&session->mutex);
+                break;
+            }
 			if(!session->media.remote_audio_ip && !session->media.remote_video_ip) {
 				/* No remote address parsed? Give up */
-				JANUS_LOG(LOG_ERR, "\tNo remote IP address found for RTP, something's wrong with the SDP!\n");
-				janus_sdp_destroy(sdp);
-				/* Hangup immediately */
-				session->media.earlymedia = FALSE;
-				session->media.update = FALSE;
-				session->media.autoaccept_reinvites = TRUE;
-				session->media.ready = FALSE;
-				session->media.on_hold = FALSE;
-				janus_sip_call_update_status(session, janus_sip_call_status_closing);
-				nua_bye(nh, TAG_END());
-				janus_mutex_lock(&session->mutex);
-				g_free(session->callee);
-				session->callee = NULL;
-				janus_mutex_unlock(&session->mutex);
-				break;
-			}
+                JANUS_LOG(LOG_ERR, "\tNo remote IP address found for RTP, something's wrong with the SDP!\n");
+                janus_sdp_destroy(sdp);
+                /* Hangup immediately */
+                session->media.earlymedia = FALSE;
+                session->media.update = FALSE;
+                session->media.autoaccept_reinvites = TRUE;
+                session->media.ready = FALSE;
+                session->media.on_hold = FALSE;
+                janus_sip_call_update_status(session, janus_sip_call_status_closing);
+                nua_bye(nh, TAG_END());
+                JANUS_LOG(LOG_INFO, "\nFOURTH NUA_BYE, 5958\n");
+                janus_mutex_lock(&session->mutex);
+                g_free(session->callee);
+                session->callee = NULL;
+                janus_mutex_unlock(&session->mutex);
+                break;
+            }
 			if(session->media.audio_pt > -1) {
 				session->media.audio_pt_name = janus_get_codec_from_pt(fixed_sdp, session->media.audio_pt);
 				JANUS_LOG(LOG_VERB, "Detected audio codec: %d (%s)\n", session->media.audio_pt, session->media.audio_pt_name);
