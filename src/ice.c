@@ -849,21 +849,17 @@ void janus_ice_notify_hangup(janus_ice_handle *handle, const char *reason) {
 	if(session == NULL)
 		return;
 	json_t *event = json_object();
-	json_object_set_new(event, "janus", json_string("hangup"));
-	json_object_set_new(event, "session_id", json_integer(session->session_id));
-	json_object_set_new(event, "sender", json_integer(handle->handle_id));
+    json_object_set_new(event, "janus", json_string("hangup"));
+    json_object_set_new(event, "session_id", json_integer(session->session_id));
+    json_object_set_new(event, "sender", json_integer(handle->handle_id));
 
     if (opaqueid_in_api && handle->opaque_id != NULL)
         json_object_set_new(event, "opaque_id", json_string(handle->opaque_id));
-    if (reason != NULL) {
+    if (reason != NULL)
         json_object_set_new(event, "reason", json_string(reason));
-        JANUS_LOG(LOG_INFO, "\nYES REASON...\n");
-    } else {
-        JANUS_LOG(LOG_INFO, "\nNO REASON...\n");
-    }
 
     char *printEvent = json_dumps(event, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nice.c - Event: %s\n", printEvent);
+    JANUS_LOG(LOG_INFO, "\nIce.c - \nEvent: %s\n", printEvent);
     free(printEvent);
 
     /* Send the event */
@@ -885,7 +881,7 @@ void janus_ice_notify_hangup(janus_ice_handle *handle, const char *reason) {
                                      session->session_id, handle->handle_id, handle->opaque_id, info);
 
         char *printInfo = json_dumps(info, JSON_INDENT(4));
-        JANUS_LOG(LOG_INFO, "\nice.c - Info: %s\n", printInfo);
+        JANUS_LOG(LOG_INFO, "\nIce.c - \nInfo: %s\n", printInfo);
         free(printInfo);
     }
     else {
@@ -4451,7 +4447,6 @@ static gboolean janus_ice_outgoing_traffic_handle(janus_ice_handle *handle, janu
 		}
 		return G_SOURCE_CONTINUE;
 	} else if(pkt == &janus_ice_hangup_peerconnection) {
-        JANUS_LOG(LOG_INFO, "4435, janus_ice_hangup_peerconnection\n");
 		/* The media session is over, send an alert on all streams and components */
 		if(handle->pc && janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_READY)) {
 			janus_dtls_srtp_send_alert(handle->pc->dtls);

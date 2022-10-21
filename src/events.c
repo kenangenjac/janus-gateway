@@ -213,7 +213,6 @@ void janus_events_notify_handlers(int type, int subtype, guint64 session_id, ...
 				json_object_set_new(event, "opaque_id", json_string(opaque_id));
 			/* The body is what we get from the event */
 			body = va_arg(args, json_t *);
-            JANUS_LOG(LOG_INFO, "JANUS WEBRTC OR MEDIA EVENT\n");
 			break;
 		}
 		case JANUS_EVENT_TYPE_PLUGIN: {
@@ -268,12 +267,8 @@ void janus_events_notify_handlers(int type, int subtype, guint64 session_id, ...
     va_end(args);
 
     char *printEvent = json_dumps(event, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nevetns.c - Event: %s\n", printEvent);
+    JANUS_LOG(LOG_INFO, "\nEvetns.c - \nEvent: %s\n", printEvent);
     free(printEvent);
-
-    char *printBody = json_dumps(body, JSON_INDENT(4));
-    JANUS_LOG(LOG_INFO, "\nevetns.c - Body: %s\n", printBody);
-    free(printBody);
 
     if (!eventsenabled) {
         json_decref(event);
