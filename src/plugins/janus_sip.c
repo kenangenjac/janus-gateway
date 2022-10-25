@@ -2672,15 +2672,17 @@ static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
 	if(!(session->status == janus_sip_call_status_inviting ||
 			session->status == janus_sip_call_status_invited ||
 			janus_sip_call_is_established(session))) {
-		g_atomic_int_set(&session->establishing, 0);
-		g_atomic_int_set(&session->established, 0);
-		g_atomic_int_set(&session->hangingup, 0);
-		return;
-	}
+        JANUS_LOG(LOG_INFO, "HMI - not inviting or not invited or not established\n");
+        g_atomic_int_set(&session->establishing, 0);
+        g_atomic_int_set(&session->established, 0);
+        g_atomic_int_set(&session->hangingup, 0);
+        return;
+    }
 	/* Involve SIP if needed */
 	janus_mutex_lock(&session->mutex);
 	if(session->stack->s_nh_i != NULL && session->callee != NULL) {
-		g_free(session->callee);
+        JANUS_LOG(LOG_INFO, "HMI - Involve SIP if needed\n");
+        g_free(session->callee);
         session->callee = NULL;
         janus_mutex_unlock(&session->mutex);
         /* Send a BYE */
@@ -2694,6 +2696,15 @@ static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
         if (janus_sip_call_is_established(session) || session->status == janus_sip_call_status_inviting) {
             nua_bye(session->stack->s_nh_i, TAG_END());
             JANUS_LOG(LOG_INFO, "\nFIRST NUA_BYE, 2696\n");
+            if (session->stack->session->hangup_reason_header &&
+                session->stack->session->hangup_reason_header_protocol &&
+                session->stack->session->hangup_reason_header_cause) {
+                JANUS_LOG(LOG_INFO, "Reasons: %s, %s, %s: ", session->stack->session->hangup_reason_header,
+                          session->stack->session->hangup_reason_header_protocol,
+                          session->stack->session->hangup_reason_header_cause);
+            } else {
+                JANUS_LOG(LOG_INFO, "No reasons\n");
+            }
         } else {
             nua_respond(session->stack->s_nh_i, 480, sip_status_phrase(480), TAG_END());
             JANUS_LOG(LOG_INFO, "FIRST NUA_RESPOND, 2700");
@@ -4441,24 +4452,28 @@ static void *janus_sip_handler(void *data) {
 			json_object_set_new(result, "event", json_string(hold ? "holding" : "resuming"));
 		} else if(!strcasecmp(request_text, "hangup")) {
 			/* Hangup an ongoing call */
-			if(!janus_sip_call_is_established(session) && session->status != janus_sip_call_status_inviting) {
-				JANUS_LOG(LOG_ERR, "Wrong state (not established/inviting? status=%s)\n",
-					janus_sip_call_status_string(session->status));
-				/* Ignore */
-				janus_sip_message_free(msg);
-				continue;
-			}
-			janus_mutex_lock(&session->mutex);
-			if(session->callee == NULL) {
-				janus_mutex_unlock(&session->mutex);
-				JANUS_LOG(LOG_ERR, "Wrong state (no callee?)\n");
-				error_code = JANUS_SIP_ERROR_WRONG_STATE;
-				g_snprintf(error_cause, 512, "Wrong state (no callee?)");
-				goto error;
-			}
-			janus_mutex_unlock(&session->mutex);
-			session->media.earlymedia = FALSE;
-			session->media.update = FALSE;
+            if (!janus_sip_call_is_established(session) && session->status != janus_sip_call_status_inviting) {
+                JANUS_LOG(LOG_ERR, "Wrong state (not established/inviting? status=%s)\n",
+                          janus_sip_call_status_string(session->status));
+                /* Ignore */
+                char *printInWrongState = json_dumps(root, JSON_INDENT(4));
+                JANUS_LOG(LOG_INFO, "\nRoot but in wrong state: %s\n", printInWrongState);
+                free(printInWrongState);
+                janus_sip_message_free(msg);
+                continue;
+            }
+            JANUS_LOG(LOG_INFO, "\nAfter the wrong state if\n");
+            janus_mutex_lock(&session->mutex);
+            if (session->callee == NULL) {
+                janus_mutex_unlock(&session->mutex);
+                JANUS_LOG(LOG_ERR, "Wrong state (no callee?)\n");
+                error_code = JANUS_SIP_ERROR_WRONG_STATE;
+                g_snprintf(error_cause, 512, "Wrong state (no callee?)");
+                goto error;
+            }
+            janus_mutex_unlock(&session->mutex);
+            session->media.earlymedia = FALSE;
+            session->media.update = FALSE;
             session->media.autoaccept_reinvites = TRUE;
             session->media.ready = FALSE;
             session->media.on_hold = FALSE;
@@ -4468,7 +4483,7 @@ static void *janus_sip_handler(void *data) {
             nua_bye(session->stack->s_nh_i,
                     TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
                     TAG_END());
-
+            // TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
             JANUS_LOG(LOG_INFO, "\nSECOND NUA_BYE, 4472\n");
             char *printRoot = json_dumps(root, JSON_INDENT(4));
             JANUS_LOG(LOG_INFO, "\nRoot to be parsed: %s\n", printRoot);
