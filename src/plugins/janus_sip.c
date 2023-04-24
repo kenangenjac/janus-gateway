@@ -4983,6 +4983,10 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 	}
 
     if(sip && sip->sip_reason && sip->sip_reason->re_text) {
+        for (sip_reason_s* it = sip->sip_reason; it != NULL; it = it->re_next) {
+            JANUS_LOG(LOG_INFO, "[KGENJAC] header: %s/%s/%s\n", it->re_protocol, it->re_cause, it->re_text);
+        }
+
         session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
         janus_sip_remove_quotes(session->hangup_reason_header);
         JANUS_LOG(LOG_INFO, "[KGENJAC] header: %s\n", session->hangup_reason_header);
