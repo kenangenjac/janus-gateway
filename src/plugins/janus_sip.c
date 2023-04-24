@@ -4987,21 +4987,21 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
         janus_sip_remove_quotes(session->hangup_reason_header);
         JANUS_LOG(LOG_INFO, "[KGENJAC] header: %s\n", session->hangup_reason_header);
     } else {
-        JANUS_LOG(LOG_INFO, "[KGENJAC] nema header");
+        JANUS_LOG(LOG_INFO, "[KGENJAC] nema header\n");
     }
 
     if(sip && sip->sip_reason && sip->sip_reason->re_protocol) {
         session->hangup_reason_header_protocol = g_strdup(sip->sip_reason->re_protocol);
         JANUS_LOG(LOG_INFO, "[KGENJAC] protocol: %s\n", session->hangup_reason_header_protocol);
     } else {
-        JANUS_LOG(LOG_INFO, "[KGENJAC] nema protocol");
+        JANUS_LOG(LOG_INFO, "[KGENJAC] nema protocol\n");
     }
 
     if(sip && sip->sip_reason && sip->sip_reason->re_cause) {
         session->hangup_reason_header_cause = g_strdup(sip->sip_reason->re_cause);
-        JANUS_LOG(LOG_INFO, "[KGENJAC] cause: %s", session->hangup_reason_header_cause);
+        JANUS_LOG(LOG_INFO, "[KGENJAC] cause: %s\n", session->hangup_reason_header_cause);
     } else {
-        JANUS_LOG(LOG_INFO, "[KGENJAC] nema cause");
+        JANUS_LOG(LOG_INFO, "[KGENJAC] nema cause\n");
     }
 
 	switch (event) {
@@ -5066,12 +5066,25 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "event", json_string("hangup"));
 				json_object_set_new(calling, "code", json_integer(status));
 				json_object_set_new(calling, "reason", json_string(phrase ? phrase : ""));
-				if(session->hangup_reason_header)
-					json_object_set_new(calling, "reason_header", json_string(session->hangup_reason_header));
-				if(session->hangup_reason_header_protocol)
-					json_object_set_new(calling, "reason_header_protocol", json_string(session->hangup_reason_header_protocol));
-				if(session->hangup_reason_header_cause)
-					json_object_set_new(calling, "reason_header_cause", json_string(session->hangup_reason_header_cause));
+
+                JANUS_LOG(LOG_INFO, "[KGENJAC] nua_i_state\n");
+
+                if(session->hangup_reason_header) {
+                    json_object_set_new(calling, "reason_header", json_string(session->hangup_reason_header));
+                    JANUS_LOG(LOG_INFO, "[KGENJAC] state header: %s\n", session->hangup_reason_header);
+                }
+				if(session->hangup_reason_header_protocol) {
+                    json_object_set_new(calling, "reason_header_protocol",
+                                        json_string(session->hangup_reason_header_protocol));
+                    JANUS_LOG(LOG_INFO, "[KGENJAC] state protocol: %s\n", session->hangup_reason_header_protocol);
+
+                }
+				if(session->hangup_reason_header_cause) {
+                    json_object_set_new(calling, "reason_header_cause",
+                                        json_string(session->hangup_reason_header_cause));
+                    JANUS_LOG(LOG_INFO, "[KGENJAC] state cause: %s\n", session->hangup_reason_header_cause);
+
+                }
 				json_object_set_new(call, "result", calling);
 				json_object_set_new(call, "call_id", json_string(session->callid));
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
@@ -5123,7 +5136,9 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_i_terminated: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			/* We had a reference to this session for this call, get rid of it */
+            JANUS_LOG(LOG_INFO, "[KGENJAC] nua_i_terminated\n");
+
+            /* We had a reference to this session for this call, get rid of it */
 			janus_sip_unref_active_call(session);
 			break;
 		}
@@ -5142,7 +5157,10 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_i_bye: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			if(sip->sip_reason && sip->sip_reason->re_text) {
+
+            JANUS_LOG(LOG_INFO, "[KGENJAC] nua_i_bye\n");
+
+            if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
 				janus_sip_remove_quotes(session->hangup_reason_header);
 			}
@@ -5156,7 +5174,10 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_cancel: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
-			if(sip->sip_reason && sip->sip_reason->re_text) {
+
+            JANUS_LOG(LOG_INFO, "[KGENJAC] nua_i_cancel\n");
+
+            if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
 				janus_sip_remove_quotes(session->hangup_reason_header);
 			}
