@@ -4966,14 +4966,17 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 {
 	janus_sip_session *session = (janus_sip_session *)(hmagic ? hmagic : magic);
 	ssip_t *ssip = session->stack;
+    char *result;
 
-	/* Notify event handlers about the content of the whole incoming SIP message, if any */
+    /* Notify event handlers about the content of the whole incoming SIP message, if any */
 	if(notify_events && gateway->events_is_enabled() && ssip) {
 		/* Print the incoming message */
 		size_t msg_size = 0;
 		msg_t *msg = nua_current_request(nua);
 		if(msg) {
 			char *msg_str = msg_as_string(ssip->s_home, msg, NULL, 0, &msg_size);
+            char *target = "calls=true";
+            result = strstr(msg_str, target);
 			json_t *info = json_object();
 			json_object_set_new(info, "event", json_string("sip-in"));
 			json_object_set_new(info, "sip", json_string(msg_str));
@@ -5070,6 +5073,11 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "event", json_string("hangup"));
 				json_object_set_new(calling, "code", json_integer(status));
 				json_object_set_new(calling, "reason", json_string(phrase ? phrase : ""));
+                if(result) {
+                    json_object_set_new(calling, "header", json_string(result));
+                    JANUS_LOG(LOG_INFO, "[KGENJAC] result: %s\n", result);
+                }
+
 
                 JANUS_LOG(LOG_INFO, "[KGENJAC] nua_i_state\n");
 
