@@ -4993,7 +4993,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
         int num_tags = sizeof(tags) / sizeof(tags[0]);
 
         for (int i = 0; i < num_tags; i++) {
-            JANUS_LOG(LOG_INFO, "[KGENJAC] tag: %s: %s\n", tags[i].t_tag.tt_name, tags[i].t_value);
+            JANUS_LOG(LOG_INFO, "[KGENJAC] tag: %s: %s\n", tags[i].t_tag->tt_name, tags[i].t_value);
         }
     }
 
