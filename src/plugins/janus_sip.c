@@ -5134,8 +5134,6 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				g_free(session->hangup_reason_header);
 				g_free(session->hangup_reason_header_protocol);
 				g_free(session->hangup_reason_header_cause);
-                free(result);
-                result = NULL;
 				session->hangup_reason_header = NULL;
 				session->hangup_reason_header_protocol = NULL;
 				session->hangup_reason_header_cause = NULL;
