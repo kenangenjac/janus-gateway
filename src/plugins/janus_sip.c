@@ -4987,20 +4987,10 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 	}
 
-    JANUS_LOG(LOG_INFO, "[KGENJAC] event: %s\n", event);
-
-    if (tags != NULL) {
-        int num_tags = sizeof(tags) / sizeof(tags[0]);
-
-        for (int i = 0; i < num_tags; i++) {
-            JANUS_LOG(LOG_INFO, "[KGENJAC] tag: %s: %s\n", tags[i].t_tag->tt_name, tags[i].t_value);
-        }
-    }
-
     if(sip && sip->sip_reason && sip->sip_reason->re_text) {
         for (struct sip_reason_s* it = sip->sip_reason; it != NULL; it = it->re_next) {
             JANUS_LOG(LOG_INFO, "[KGENJAC] header: %s/%s/%s/%s\n", it->re_protocol, it->re_cause, it->re_text, it->re_params);
-            if (it->re_common != NULL && it->re_common->h_class)
+            if (it->re_common != NULL && it->re_common->h_class != NULL)
                 JANUS_LOG(LOG_INFO, "[KGENJAC] hc_name: %s", it->re_common->h_class->hc_name);
         }
 
