@@ -4991,7 +4991,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
         for (struct sip_reason_s* it = sip->sip_reason; it != NULL; it = it->re_next) {
             JANUS_LOG(LOG_INFO, "[KGENJAC] header: %s/%s/%s/%s\n", it->re_protocol, it->re_cause, it->re_text, it->re_params);
             if (it->re_common != NULL && it->re_common->h_class != NULL)
-                JANUS_LOG(LOG_INFO, "[KGENJAC] hc_name: %s", it->re_common->h_class->hc_name);
+                JANUS_LOG(LOG_INFO, "[KGENJAC] hc_name: %s: %s\n", it->re_common->h_class->hc_name, it->re_common->h_class->hc_print);
         }
 
         session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
