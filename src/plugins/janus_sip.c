@@ -4975,6 +4975,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		msg_t *msg = nua_current_request(nua);
 		if(msg) {
 			char *msg_str = msg_as_string(ssip->s_home, msg, NULL, 0, &msg_size);
+			JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] SIP: \n%s\n\n", msg_str);
 			json_t *info = json_object();
 			json_object_set_new(info, "event", json_string("sip-in"));
 			json_object_set_new(info, "sip", json_string(msg_str));
@@ -4983,26 +4984,69 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 	}
 
+	if(sip) {
+		JANUS_LOG(LOG_INFO, "[KGENJAC] sip in callback");
+		if(sip->sip_reason && sip->sip_reason->re_text) {
+			JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+		}
+	}
+	
 	switch (event) {
 	/* Status or Error Indications */
 		case nua_i_active:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_active");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_error:
 			JANUS_LOG(LOG_WARN, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_error");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_fork:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_fork");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_media_error:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_media_error");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_subscription:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_subscription");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_state:;
 			tagi_t const *ti = tl_find(tags, nutag_callstate);
 			enum nua_callstate callstate = ti ? ti->t_value : -1;
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_state");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s, call state [%s]\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??", nua_callstate_name(callstate));
 			/* There are several call states, but we care about the terminated state in order to send the 'hangup' event
 			 * and the proceeding state in order to send the 'proceeding' event so the client can play a ringback tone for
@@ -5102,6 +5146,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_i_terminated: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_terminated");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We had a reference to this session for this call, get rid of it */
 			janus_sip_unref_active_call(session);
 			break;
@@ -5109,6 +5159,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 	/* SIP requests */
 		case nua_i_ack: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_ack");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We're only interested in this when there's been an offerless INVITE, as here's where we'd get our answer */
 			if(sip->sip_payload && sip->sip_payload->pl_data) {
 				JANUS_LOG(LOG_VERB, "This ACK contains a payload, probably as a result of an offerless INVITE: simulating 200 OK...\n");
@@ -5118,9 +5174,21 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_outbound:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_outbound");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_i_bye: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_bye");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
 				janus_sip_remove_quotes(session->hangup_reason_header);
@@ -5135,6 +5203,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_cancel: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_cancel");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			if(sip->sip_reason && sip->sip_reason->re_text) {
 				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
 				janus_sip_remove_quotes(session->hangup_reason_header);
@@ -5149,6 +5223,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_invite: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_invite");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* Add a reference for this call */
 			janus_sip_ref_active_call(session);
 			if(ssip == NULL) {
@@ -5390,6 +5470,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_refer: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_refer");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We're being asked to transfer a call */
 			if(sip == NULL || sip->sip_refer_to == NULL) {
 				JANUS_LOG(LOG_ERR, "Missing Refer-To header\n");
@@ -5476,6 +5562,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_info: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_info");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We expect a payload */
 			if(!sip->sip_content_type || !sip->sip_content_type->c_type || !sip->sip_payload || !sip->sip_payload->pl_data) {
 				return;
@@ -5509,6 +5601,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_message: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_message");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We expect a payload */
 			if(!sip->sip_content_type || !sip->sip_content_type->c_type || !sip->sip_payload || !sip->sip_payload->pl_data) {
 				return;
@@ -5542,6 +5640,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_notify: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_notify");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We expect a payload */
 			if(!sip) {
 				/* No SIP message? Maybe an internal message? */
@@ -5580,12 +5684,24 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		}
 		case nua_i_options:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_i_options");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* Stack responds automatically to OPTIONS request unless OPTIONS is
 			 * included in the set of application methods, set by NUTAG_APPL_METHOD(). */
 			break;
 	/* Responses */
 		case nua_r_get_params:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_get_params");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			const tagi_t* from = NULL;
 			if((status != 200) || ((from = tl_find(tags, siptag_from_str)) == NULL)) {
 				JANUS_LOG(LOG_WARN, "Unable to find 'siptag_from_str' among all the tags\n");
@@ -5602,12 +5718,30 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_r_set_params:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_set_params");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_r_notifier:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_notifier");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_r_shutdown:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_shutdown");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			if(status < 200 && !g_atomic_int_get(&stopping)) {
 				/* shutdown in progress -> return */
 				break;
@@ -5632,20 +5766,50 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_r_terminate:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_terminate");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 	/* SIP responses */
 		case nua_r_bye:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_bye");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_r_cancel:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_cancel");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 		case nua_r_info:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_info");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* FIXME Should we notify the user, in case the SIP INFO returned an error? */
 			break;
 		case nua_r_message:
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_message");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* Handle authetntication for SIP MESSAGE - eg. SippySoft Softswitch requires 401 authentication even if SIP user is registerered */
 			if(status == 401 || status == 407) {
 				const char *scheme = NULL;
@@ -5735,12 +5899,24 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			break;
 		case nua_r_refer: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_refer");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We got a response to our REFER */
 			JANUS_LOG(LOG_VERB, "Response to REFER received\n");
 			break;
 		}
 		case nua_r_invite: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_invite");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 
 			/* If this INVITE was triggered by a REFER, notify the transferer */
 			if(session->refer_id > 0) {
@@ -6019,6 +6195,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 		case nua_r_register:
 		case nua_r_unregister: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_register/unregister");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			if(status == 200) {
 				if(event == nua_r_register) {
 					if(session->account.registration_status < janus_sip_registration_status_registered)
@@ -6191,6 +6373,12 @@ auth_failed:
 		}
 		case nua_r_subscribe: {
 			JANUS_LOG(LOG_VERB, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_subscribe");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			if(status == 200 || status == 202) {
 				/* Success */
 				json_t *event = json_object();
@@ -6290,12 +6478,24 @@ auth_failed:
 		}
 		case nua_r_notify: {
 			JANUS_LOG(LOG_WARN, "[%s][%s]: %d %s\n", session->account.username, nua_event_name(event), status, phrase ? phrase : "??");
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] nua_r_notify");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			/* We got a response to a NOTIFY we sent, but we really don't care */
 			break;
 		}
 		default:
 			/* unknown event -> print out error message */
 			JANUS_LOG(LOG_ERR, "Unknown event %d (%s)\n", event, nua_event_name(event));
+			if(sip) {
+				JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] unknown");
+				if(sip->sip_reason && sip->sip_reason->re_text) {
+					JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
+				}
+			}
 			break;
 	}
 }
