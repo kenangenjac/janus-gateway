@@ -4985,7 +4985,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 	}
 
 	if(sip) {
-		JANUS_LOG(LOG_INFO, "[KGENJAC] sip in callback");
+		JANUS_LOG(LOG_INFO, "\n\n[KGENJAC] sip in callback");
 		if(sip->sip_reason && sip->sip_reason->re_text) {
 			JANUS_LOG(LOG_INFO, "\n[KGENJAC] Reason: %s\n\n", sip->sip_reason->re_text);
 		}
