@@ -5918,6 +5918,17 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				}
 			}
 
+			if(sip && sip->sip_reason && sip->sip_reason->re_text) {
+				session->hangup_reason_header = g_strdup(sip->sip_reason->re_text);
+				janus_sip_remove_quotes(session->hangup_reason_header);
+			}
+			if(sip && sip->sip_reason && sip->sip_reason->re_protocol) {
+				session->hangup_reason_header_protocol = g_strdup(sip->sip_reason->re_protocol);
+			}
+			if(sip && sip->sip_reason && sip->sip_reason->re_cause) {
+				session->hangup_reason_header_cause = g_strdup(sip->sip_reason->re_cause);
+			}
+
 			/* If this INVITE was triggered by a REFER, notify the transferer */
 			if(session->refer_id > 0) {
 				janus_mutex_lock(&sessions_mutex);
