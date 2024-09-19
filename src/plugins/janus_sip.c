@@ -5215,6 +5215,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					gateway->notify_event(&janus_sip_plugin, session->handle, info);
 				}
 				/* Get rid of any PeerConnection that may have been set up */
+				JANUS_LOG(LOG_INFO, "[Ke] Getting rid of the PC\n");
 				janus_mutex_lock(&sessions_mutex);
 				if(session->callid) {
 					g_hash_table_remove(callids, session->callid);
@@ -5224,17 +5225,35 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				janus_mutex_unlock(&sessions_mutex);
 				g_free(session->transaction);
 				session->transaction = NULL;
+				JANUS_LOG(LOG_INFO, "[Ke] hangup_reason_header before clearing: %s\n", session->hangup_reason_header);
+				JANUS_LOG(LOG_INFO, "[Ke] hangup_reason_header_protocol before clearing: %s\n", session->hangup_reason_header_protocol);
+				JANUS_LOG(LOG_INFO, "[Ke] hangup_reason_header_cause before clearing: %s\n", session->hangup_reason_header_cause);
 				g_free(session->hangup_reason_header);
 				g_free(session->hangup_reason_header_protocol);
 				g_free(session->hangup_reason_header_cause);
 				session->hangup_reason_header = NULL;
 				session->hangup_reason_header_protocol = NULL;
 				session->hangup_reason_header_cause = NULL;
+
+				char *sessionJson = json_dumps(session, JSON_INDENT(4));
+				JANUS_LOG(LOG_INFO, "\n[Ke] Session: %s\n", sessionJson);
+				free(sessionJson);
+
+				char *sessionJsonMedia = json_dumps(session->media, JSON_INDENT(4));
+				JANUS_LOG(LOG_INFO, "\n[Ke] Session media: %s\n", sessionJsonMedia);
+				free(sessionJsonMedia);
+
 				if(g_atomic_int_get(&session->establishing) || g_atomic_int_get(&session->established)) {
+					JANUS_LOG(LOG_INFO, "[Ke] session->establishing: %s\n", g_atomic_int_get(&session->establishing));
+					JANUS_LOG(LOG_INFO, "[Ke] session->established: %s\n", g_atomic_int_get(&session->established));
 					if(session->media.has_audio || session->media.has_video) {
+						JANUS_LOG(LOG_INFO, "[Ke] Getting rid of the PC in the core...\n");
+						JANUS_LOG(LOG_INFO, "[Ke] session->media.has_audio: %s\n", session->media.has_audio);
+						JANUS_LOG(LOG_INFO, "[Ke] session->media.has_video: %s\n", session->media.has_video);
 						/* Get rid of the PeerConnection in the core */
 						gateway->close_pc(session->handle);
 					} else {
+						JANUS_LOG(LOG_INFO, "[Ke] Cleaning up PC locally...\n");
 						/* No SDP was exchanged, just clean up locally */
 						janus_sip_hangup_media_internal(session->handle);
 					}
