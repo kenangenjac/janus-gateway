@@ -1483,6 +1483,8 @@ static void janus_sip_srtp_cleanup(janus_sip_session *session) {
 static void janus_sip_media_reset(janus_sip_session *session) {
 	if(session == NULL)
 		return;
+	JANUS_LOG(LOG_INFO, "[Ke] Resetting SIP media %s\n", session->account.username);
+
 	g_free(session->media.remote_audio_ip);
 	session->media.remote_audio_ip = NULL;
 	g_free(session->media.remote_video_ip);
@@ -5102,6 +5104,101 @@ error:
 	return NULL;
 }
 
+char *janus_sip_session_to_json(janus_sip_session *session) {
+	json_t *json_session = json_object();
+
+	json_object_set_new(json_session, "handle", session->handle ? json_string("handle_data") : json_null());
+	json_object_set_new(json_session, "stack", session->stack ? json_string("stack_data") : json_null());
+	json_object_set_new(json_session, "account", json_string("account_data"));
+	json_object_set_new(json_session, "status", json_string("status_data"));
+	json_object_set_new(json_session, "media", json_string("media_data"));
+	json_object_set_new(json_session, "transaction", session->transaction ? json_string(session->transaction) : json_null());
+	json_object_set_new(json_session, "callee", session->callee ? json_string(session->callee) : json_null());
+	json_object_set_new(json_session, "callid", session->callid ? json_string(session->callid) : json_null());
+	json_object_set_new(json_session, "refer_id", json_integer(session->refer_id));
+	json_object_set_new(json_session, "sdp", session->sdp ? json_string("sdp_data") : json_null());
+	json_object_set_new(json_session, "arc", session->arc ? json_string("arc_data") : json_null());
+	json_object_set_new(json_session, "arc_peer", session->arc_peer ? json_string("arc_peer_data") : json_null());
+	json_object_set_new(json_session, "vrc", session->vrc ? json_string("vrc_data") : json_null());
+	json_object_set_new(json_session, "vrc_peer", session->vrc_peer ? json_string("vrc_peer_data") : json_null());
+	json_object_set_new(json_session, "establishing", json_integer(session->establishing));
+	json_object_set_new(json_session, "established", json_integer(session->established));
+	json_object_set_new(json_session, "hangingup", json_integer(session->hangingup));
+	json_object_set_new(json_session, "destroyed", json_integer(session->destroyed));
+	json_object_set_new(json_session, "master_id", json_integer(session->master_id));
+	json_object_set_new(json_session, "master", session->master ? json_string("master_data") : json_null());
+	json_object_set_new(json_session, "helper", json_boolean(session->helper));
+	json_object_set_new(json_session, "helpers_count", json_integer(g_list_length(session->helpers)));
+	json_object_set_new(json_session, "rec_mutex", json_string("rec_mutex_data"));
+	json_object_set_new(json_session, "relayer_thread", session->relayer_thread ? json_string("thread_data") : json_null());
+	json_object_set_new(json_session, "hangup_reason_header", session->hangup_reason_header ? json_string(session->hangup_reason_header) : json_null());
+	json_object_set_new(json_session, "hangup_reason_header_protocol", session->hangup_reason_header_protocol ? json_string(session->hangup_reason_header_protocol) : json_null());
+	json_object_set_new(json_session, "hangup_reason_header_cause", session->hangup_reason_header_cause ? json_string(session->hangup_reason_header_cause) : json_null());
+	json_object_set_new(json_session, "incoming_header_prefixes_count", json_integer(g_list_length(session->incoming_header_prefixes)));
+	json_object_set_new(json_session, "active_calls_count", json_integer(g_list_length(session->active_calls)));
+	json_object_set_new(json_session, "ref", json_string("ref_data"));
+	json_object_set_new(json_session, "latest_dtmf", json_string("dtmf_data"));
+
+	char *session_json = json_dumps(json_session, JSON_INDENT(4));
+
+	json_decref(json_session);
+
+	return session_json;
+}
+
+char *janus_sip_media_to_json(janus_sip_media *media) {
+	json_t *json_media = json_object();
+
+	json_object_set_new(json_media, "remote_audio_ip", media->remote_audio_ip ? json_string(media->remote_audio_ip) : json_null());
+	json_object_set_new(json_media, "remote_video_ip", media->remote_video_ip ? json_string(media->remote_video_ip) : json_null());
+	json_object_set_new(json_media, "earlymedia", json_boolean(media->earlymedia));
+	json_object_set_new(json_media, "update", json_boolean(media->update));
+	json_object_set_new(json_media, "autoaccept_reinvites", json_boolean(media->autoaccept_reinvites));
+	json_object_set_new(json_media, "ready", json_boolean(media->ready));
+	json_object_set_new(json_media, "require_srtp", json_boolean(media->require_srtp));
+	json_object_set_new(json_media, "has_srtp_local_audio", json_boolean(media->has_srtp_local_audio));
+	json_object_set_new(json_media, "has_srtp_local_video", json_boolean(media->has_srtp_local_video));
+	json_object_set_new(json_media, "has_srtp_remote_audio", json_boolean(media->has_srtp_remote_audio));
+	json_object_set_new(json_media, "has_srtp_remote_video", json_boolean(media->has_srtp_remote_video));
+	json_object_set_new(json_media, "audio_rtp_fd", json_integer(media->audio_rtp_fd));
+	json_object_set_new(json_media, "audio_rtcp_fd", json_integer(media->audio_rtcp_fd));
+	json_object_set_new(json_media, "local_audio_rtp_port", json_integer(media->local_audio_rtp_port));
+	json_object_set_new(json_media, "remote_audio_rtp_port", json_integer(media->remote_audio_rtp_port));
+	json_object_set_new(json_media, "local_audio_rtcp_port", json_integer(media->local_audio_rtcp_port));
+	json_object_set_new(json_media, "remote_audio_rtcp_port", json_integer(media->remote_audio_rtcp_port));
+	json_object_set_new(json_media, "audio_ssrc", json_integer(media->audio_ssrc));
+	json_object_set_new(json_media, "audio_ssrc_peer", json_integer(media->audio_ssrc_peer));
+	json_object_set_new(json_media, "audio_pt", json_integer(media->audio_pt));
+	json_object_set_new(json_media, "opusred_pt", json_integer(media->opusred_pt));
+	json_object_set_new(json_media, "audio_pt_name", media->audio_pt_name ? json_string(media->audio_pt_name) : json_null());
+	json_object_set_new(json_media, "audio_srtp_tag", json_integer(media->audio_srtp_tag));
+	json_object_set_new(json_media, "audio_srtp_in", json_string("srtp_in_data"));
+	json_object_set_new(json_media, "audio_srtp_out", json_string("srtp_out_data"));
+	json_object_set_new(json_media, "audio_remote_policy", json_string("audio_remote_policy_data"));
+	json_object_set_new(json_media, "audio_local_policy", json_string("audio_local_policy_data"));
+	json_object_set_new(json_media, "audio_srtp_local_profile", media->audio_srtp_local_profile ? json_string(media->audio_srtp_local_profile) : json_null());
+	json_object_set_new(json_media, "audio_srtp_local_crypto", media->audio_srtp_local_crypto ? json_string(media->audio_srtp_local_crypto) : json_null());
+	json_object_set_new(json_media, "has_video", json_boolean(media->has_video));
+	json_object_set_new(json_media, "video_rtp_fd", json_integer(media->video_rtp_fd));
+	json_object_set_new(json_media, "video_rtcp_fd", json_integer(media->video_rtcp_fd));
+	json_object_set_new(json_media, "local_video_rtp_port", json_integer(media->local_video_rtp_port));
+	json_object_set_new(json_media, "remote_video_rtp_port", json_integer(media->remote_video_rtp_port));
+	json_object_set_new(json_media, "local_video_rtcp_port", json_integer(media->local_video_rtcp_port));
+	json_object_set_new(json_media, "remote_video_rtcp_port", json_integer(media->remote_video_rtcp_port));
+	json_object_set_new(json_media, "video_ssrc", json_integer(media->video_ssrc));
+	json_object_set_new(json_media, "video_ssrc_peer", json_integer(media->video_ssrc_peer));
+	json_object_set_new(json_media, "simulcast_ssrc", json_integer(media->simulcast_ssrc));
+	json_object_set_new(json_media, "video_pt", json_integer(media->video_pt));
+	json_object_set_new(json_media, "video_pt_name", media->video_pt_name ? json_string(media->video_pt_name) : json_null());
+	json_object_set_new(json_media, "video_srtp_tag", json_integer(media->video_srtp_tag));
+
+	char *media_json = json_dumps(json_media, JSON_INDENT(4));
+
+	json_decref(json_media);
+
+	return media_json;
+}
+
 /* Sofia callbacks */
 void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tags[])
 {
@@ -6450,101 +6547,6 @@ auth_failed:
 	}
 }
 
-char *janus_sip_session_to_json(janus_sip_session *session) {
-	json_t *json_session = json_object();
-
-	json_object_set_new(json_session, "handle", session->handle ? json_string("handle_data") : json_null());
-	json_object_set_new(json_session, "stack", session->stack ? json_string("stack_data") : json_null());
-	json_object_set_new(json_session, "account", json_string("account_data"));
-	json_object_set_new(json_session, "status", json_string("status_data"));
-	json_object_set_new(json_session, "media", json_string("media_data"));
-	json_object_set_new(json_session, "transaction", session->transaction ? json_string(session->transaction) : json_null());
-	json_object_set_new(json_session, "callee", session->callee ? json_string(session->callee) : json_null());
-	json_object_set_new(json_session, "callid", session->callid ? json_string(session->callid) : json_null());
-	json_object_set_new(json_session, "refer_id", json_integer(session->refer_id));
-	json_object_set_new(json_session, "sdp", session->sdp ? json_string("sdp_data") : json_null());
-	json_object_set_new(json_session, "arc", session->arc ? json_string("arc_data") : json_null());
-	json_object_set_new(json_session, "arc_peer", session->arc_peer ? json_string("arc_peer_data") : json_null());
-	json_object_set_new(json_session, "vrc", session->vrc ? json_string("vrc_data") : json_null());
-	json_object_set_new(json_session, "vrc_peer", session->vrc_peer ? json_string("vrc_peer_data") : json_null());
-	json_object_set_new(json_session, "establishing", json_integer(session->establishing));
-	json_object_set_new(json_session, "established", json_integer(session->established));
-	json_object_set_new(json_session, "hangingup", json_integer(session->hangingup));
-	json_object_set_new(json_session, "destroyed", json_integer(session->destroyed));
-	json_object_set_new(json_session, "master_id", json_integer(session->master_id));
-	json_object_set_new(json_session, "master", session->master ? json_string("master_data") : json_null());
-	json_object_set_new(json_session, "helper", json_boolean(session->helper));
-	json_object_set_new(json_session, "helpers_count", json_integer(g_list_length(session->helpers)));
-	json_object_set_new(json_session, "rec_mutex", json_string("rec_mutex_data"));
-	json_object_set_new(json_session, "relayer_thread", session->relayer_thread ? json_string("thread_data") : json_null());
-	json_object_set_new(json_session, "hangup_reason_header", session->hangup_reason_header ? json_string(session->hangup_reason_header) : json_null());
-	json_object_set_new(json_session, "hangup_reason_header_protocol", session->hangup_reason_header_protocol ? json_string(session->hangup_reason_header_protocol) : json_null());
-	json_object_set_new(json_session, "hangup_reason_header_cause", session->hangup_reason_header_cause ? json_string(session->hangup_reason_header_cause) : json_null());
-	json_object_set_new(json_session, "incoming_header_prefixes_count", json_integer(g_list_length(session->incoming_header_prefixes)));
-	json_object_set_new(json_session, "active_calls_count", json_integer(g_list_length(session->active_calls)));
-	json_object_set_new(json_session, "ref", json_string("ref_data"));
-	json_object_set_new(json_session, "latest_dtmf", json_string("dtmf_data"));
-
-	char *session_json = json_dumps(json_session, JSON_INDENT(4));
-
-	json_decref(json_session);
-
-	return session_json;
-}
-
-char *janus_sip_media_to_json(janus_sip_media *media) {
-	json_t *json_media = json_object();
-
-	json_object_set_new(json_media, "remote_audio_ip", media->remote_audio_ip ? json_string(media->remote_audio_ip) : json_null());
-	json_object_set_new(json_media, "remote_video_ip", media->remote_video_ip ? json_string(media->remote_video_ip) : json_null());
-	json_object_set_new(json_media, "earlymedia", json_boolean(media->earlymedia));
-	json_object_set_new(json_media, "update", json_boolean(media->update));
-	json_object_set_new(json_media, "autoaccept_reinvites", json_boolean(media->autoaccept_reinvites));
-	json_object_set_new(json_media, "ready", json_boolean(media->ready));
-	json_object_set_new(json_media, "require_srtp", json_boolean(media->require_srtp));
-	json_object_set_new(json_media, "has_srtp_local_audio", json_boolean(media->has_srtp_local_audio));
-	json_object_set_new(json_media, "has_srtp_local_video", json_boolean(media->has_srtp_local_video));
-	json_object_set_new(json_media, "has_srtp_remote_audio", json_boolean(media->has_srtp_remote_audio));
-	json_object_set_new(json_media, "has_srtp_remote_video", json_boolean(media->has_srtp_remote_video));
-	json_object_set_new(json_media, "audio_rtp_fd", json_integer(media->audio_rtp_fd));
-	json_object_set_new(json_media, "audio_rtcp_fd", json_integer(media->audio_rtcp_fd));
-	json_object_set_new(json_media, "local_audio_rtp_port", json_integer(media->local_audio_rtp_port));
-	json_object_set_new(json_media, "remote_audio_rtp_port", json_integer(media->remote_audio_rtp_port));
-	json_object_set_new(json_media, "local_audio_rtcp_port", json_integer(media->local_audio_rtcp_port));
-	json_object_set_new(json_media, "remote_audio_rtcp_port", json_integer(media->remote_audio_rtcp_port));
-	json_object_set_new(json_media, "audio_ssrc", json_integer(media->audio_ssrc));
-	json_object_set_new(json_media, "audio_ssrc_peer", json_integer(media->audio_ssrc_peer));
-	json_object_set_new(json_media, "audio_pt", json_integer(media->audio_pt));
-	json_object_set_new(json_media, "opusred_pt", json_integer(media->opusred_pt));
-	json_object_set_new(json_media, "audio_pt_name", media->audio_pt_name ? json_string(media->audio_pt_name) : json_null());
-	json_object_set_new(json_media, "audio_srtp_tag", json_integer(media->audio_srtp_tag));
-	json_object_set_new(json_media, "audio_srtp_in", json_string("srtp_in_data"));
-	json_object_set_new(json_media, "audio_srtp_out", json_string("srtp_out_data"));
-	json_object_set_new(json_media, "audio_remote_policy", json_string("audio_remote_policy_data"));
-	json_object_set_new(json_media, "audio_local_policy", json_string("audio_local_policy_data"));
-	json_object_set_new(json_media, "audio_srtp_local_profile", media->audio_srtp_local_profile ? json_string(media->audio_srtp_local_profile) : json_null());
-	json_object_set_new(json_media, "audio_srtp_local_crypto", media->audio_srtp_local_crypto ? json_string(media->audio_srtp_local_crypto) : json_null());
-	json_object_set_new(json_media, "has_video", json_boolean(media->has_video));
-	json_object_set_new(json_media, "video_rtp_fd", json_integer(media->video_rtp_fd));
-	json_object_set_new(json_media, "video_rtcp_fd", json_integer(media->video_rtcp_fd));
-	json_object_set_new(json_media, "local_video_rtp_port", json_integer(media->local_video_rtp_port));
-	json_object_set_new(json_media, "remote_video_rtp_port", json_integer(media->remote_video_rtp_port));
-	json_object_set_new(json_media, "local_video_rtcp_port", json_integer(media->local_video_rtcp_port));
-	json_object_set_new(json_media, "remote_video_rtcp_port", json_integer(media->remote_video_rtcp_port));
-	json_object_set_new(json_media, "video_ssrc", json_integer(media->video_ssrc));
-	json_object_set_new(json_media, "video_ssrc_peer", json_integer(media->video_ssrc_peer));
-	json_object_set_new(json_media, "simulcast_ssrc", json_integer(media->simulcast_ssrc));
-	json_object_set_new(json_media, "video_pt", json_integer(media->video_pt));
-	json_object_set_new(json_media, "video_pt_name", media->video_pt_name ? json_string(media->video_pt_name) : json_null());
-	json_object_set_new(json_media, "video_srtp_tag", json_integer(media->video_srtp_tag));
-
-	char *media_json = json_dumps(json_media, JSON_INDENT(4));
-
-	json_decref(json_media);
-
-	return media_json;
-}
-
 void janus_sip_save_reason(sip_t const *sip, janus_sip_session *session) {
 	if(!sip || !session)
 		return;
@@ -7573,6 +7575,7 @@ static void *janus_sip_relay_thread(void *data) {
 	janus_mutex_unlock(&session->mutex);
 	/* Done */
 	JANUS_LOG(LOG_VERB, "Leaving SIP relay thread\n");
+	JANUS_LOG(LOG_INFO, "[Ke] Leaving SIP relay thread. User: %s\n", session->account.username);
 	session->relayer_thread = NULL;
 	janus_refcount_decrease(&session->ref);
 	g_thread_unref(g_thread_self());
