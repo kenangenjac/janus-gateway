@@ -1667,7 +1667,7 @@ static json_t *janus_sip_get_incoming_headers(const sip_t *sip, const janus_sip_
 	}
 
 	char *dump = json_dumps(headers, JSON_INDENT(2));
-	janus_log(LOG_INFO, "[Ke] [janus_sip_get_incoming_headers]: returning headers JSON:\n%s\n", dump);
+	JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_get_incoming_headers]: returning headers JSON:\n%s\n", dump);
 	free(dump);
 
 	return headers;
