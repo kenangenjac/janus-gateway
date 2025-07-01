@@ -1644,8 +1644,10 @@ static void janus_sip_remove_quotes(char *str) {
 
 static json_t *janus_sip_get_incoming_headers(const sip_t *sip, const janus_sip_session *session) {
 	json_t *headers = json_object();
-	if(!sip)
+	if(!sip) {
+		JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_get_incoming_headers]: no SIP message, returning empty headers\n");
 		return headers;
+	}
 	sip_unknown_t *unknown_header = sip->sip_unknown;
 	while(unknown_header != NULL) {
 		GList *temp = session->incoming_header_prefixes;
@@ -1654,6 +1656,7 @@ static json_t *janus_sip_get_incoming_headers(const sip_t *sip, const janus_sip_
 			if(header_prefix != NULL && unknown_header->un_name != NULL) {
 				if(strncasecmp(unknown_header->un_name, header_prefix, strlen(header_prefix)) == 0) {
 					const char *header_name = g_strdup(unknown_header->un_name);
+					JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_get_incoming_headers]: Header %s: %s\n", header_name, unknown_header->un_value);
 					json_object_set(headers, header_name, json_string(unknown_header->un_value));
 					break;
 				}
@@ -1662,6 +1665,11 @@ static json_t *janus_sip_get_incoming_headers(const sip_t *sip, const janus_sip_
 		}
 		unknown_header = unknown_header->un_next;
 	}
+
+	char *dump = json_dumps(headers, JSON_INDENT(2));
+	janus_log(LOG_INFO, "[Ke] [janus_sip_get_incoming_headers]: returning headers JSON:\n%s\n", dump);
+	free(dump);
+
 	return headers;
 }
 
@@ -5308,10 +5316,25 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					json_object_set_new(calling, "reason_header_protocol", json_string(session->hangup_reason_header_protocol));
 				if(session->hangup_reason_header_cause)
 					json_object_set_new(calling, "reason_header_cause", json_string(session->hangup_reason_header_cause));
+
+				if(session->incoming_header_prefixes) {
+					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: processing incoming SIP, extracting headers\n");
+                	json_t *headers = janus_sip_get_incoming_headers(sip, session);
+                	json_object_set_new(calling, "headers", headers);
+                } else {
+					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: no incoming_header_prefixes\n");
+				}
+
+
 				json_object_set_new(call, "result", calling);
 				json_object_set_new(call, "call_id", json_string(session->callid));
+
+				char *dump_call = json_dumps(call, JSON_INDENT(2));
+				JANUS_LOG(LOG_INFO, "[Ke] [terminate]: call JSON:\n%s\n", dump_call);
+				free(dump_call);
+
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
-				JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
+				JANUS_LOG(LOG_INFO, "[Ke] [terminate]  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 				json_decref(call);
 				/* Also notify event handlers */
 				if(notify_events && gateway->events_is_enabled()) {
@@ -5600,6 +5623,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			char *callee_text = url_as_string(session->stack->s_home, sip->sip_to->a_url);
 			json_object_set_new(calling, "callee", json_string(callee_text));
 			if(session->incoming_header_prefixes) {
+				// LOG INCOMING HEADERS
 				json_t *headers = janus_sip_get_incoming_headers(sip, session);
 				json_object_set_new(calling, "headers", headers);
 			}
