@@ -6638,7 +6638,7 @@ void janus_sip_save_reason(sip_t const *sip, janus_sip_session *session) {
 	if(!sip || !session)
 		return;
 
-	JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n")
+	JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n");
 	if(session && session->incoming_header_prefixes) {
 		json_t *headers = janus_sip_get_incoming_headers(sip, session);
 
