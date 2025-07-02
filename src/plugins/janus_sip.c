@@ -1299,9 +1299,9 @@ static void janus_sip_session_free(const janus_refcount *session_ref) {
 		g_list_free_full(session->incoming_header_prefixes, g_free);
 		session->incoming_header_prefixes = NULL;
 	}
-	if(session->hangup_reason_headers) {
-		json_decref(session->hangup_reason_headers);
-		session->hangup_reason_headers = NULL;
+	if(session->hangup_custom_headers) {
+		json_decref(session->hangup_custom_headers);
+		session->hangup_custom_headers = NULL;
 	}
 	janus_sip_srtp_cleanup(session);
 	janus_mutex_destroy(&session->mutex);
@@ -2357,7 +2357,7 @@ void janus_sip_create_session(janus_plugin_session *handle, int *error) {
 	session->hangup_reason_header = NULL;
 	session->hangup_reason_header_protocol = NULL;
 	session->hangup_reason_header_cause = NULL;
-	session->hangup_reason_headers = NULL;
+	session->hangup_custom_headers = NULL;
 	session->media.remote_audio_ip = NULL;
 	session->media.remote_video_ip = NULL;
 	session->media.earlymedia = FALSE;
@@ -5335,9 +5335,9 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				if(session->hangup_reason_header_cause)
 					json_object_set_new(calling, "reason_header_cause", json_string(session->hangup_reason_header_cause));
 
-				if(session->hangup_reason_headers) {
+				if(session->hangup_custom_headers) {
 					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: headers in session, populating...\n");
-                	json_object_set_new(calling, "headers", session->hangup_reason_headers);
+                	json_object_set_new(calling, "headers", session->hangup_custom_headers);
 				}
 
 //				if(session->incoming_header_prefixes) {
@@ -5374,9 +5374,9 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					if(session->hangup_reason_header_cause)
 						json_object_set_new(info, "reason_header_cause", json_string(session->hangup_reason_header_cause));
 
-					if(session->hangup_reason_headers) {
+					if(session->hangup_custom_headers) {
 						JANUS_LOG(LOG_INFO, "[Ke] [terminate - notify]: headers in session, populating...\n");
-						json_object_set_new(calling, "headers", session->hangup_reason_headers);
+						json_object_set_new(calling, "headers", session->hangup_custom_headers);
 					}
 
 					gateway->notify_event(&janus_sip_plugin, session->handle, info);
@@ -5402,11 +5402,11 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				g_free(session->hangup_reason_header);
 				g_free(session->hangup_reason_header_protocol);
 				g_free(session->hangup_reason_header_cause);
-				json_decref(session->hangup_reason_headers);
+				json_decref(session->hangup_custom_headers);
 				session->hangup_reason_header = NULL;
 				session->hangup_reason_header_protocol = NULL;
 				session->hangup_reason_header_cause = NULL;
-				session->hangup_reason_headers = NULL;
+				session->hangup_custom_headers = NULL;
 				if(g_atomic_int_get(&session->establishing) || g_atomic_int_get(&session->established)) {
 					/* Get rid of the PeerConnection in the core */
 					gateway->close_pc(session->handle);
@@ -6677,11 +6677,11 @@ void janus_sip_save_reason(sip_t const *sip, janus_sip_session *session) {
 			JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_save_reason]: headers JSON:\n%s\n", dump);
 			free(dump);
 
-			if (session->hangup_reason_headers != NULL) {
-        		json_decref(session->hangup_reason_headers);
+			if (session->hangup_custom_headers != NULL) {
+        		json_decref(session->hangup_custom_headers);
 			}
 			JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_save_reason]: assigning headers JSON to session :\n%s\n", dump);
-        	session->hangup_reason_headers = headers;
+        	session->hangup_custom_headers = headers;
        	}
 	}
 
