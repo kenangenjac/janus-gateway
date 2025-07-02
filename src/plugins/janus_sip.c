@@ -1144,6 +1144,7 @@ typedef struct janus_sip_session {
 	GList *active_calls;
 	janus_refcount ref;
 	janus_sip_dtmf latest_dtmf;
+	json_t *hangup_custom_headers;
 } janus_sip_session;
 
 typedef struct janus_sip_call {
@@ -1297,6 +1298,10 @@ static void janus_sip_session_free(const janus_refcount *session_ref) {
 	if(session->incoming_header_prefixes) {
 		g_list_free_full(session->incoming_header_prefixes, g_free);
 		session->incoming_header_prefixes = NULL;
+	}
+	if(session->hangup_reason_headers) {
+		json_decref(session->hangup_reason_headers);
+		session->hangup_reason_headers = NULL;
 	}
 	janus_sip_srtp_cleanup(session);
 	janus_mutex_destroy(&session->mutex);
@@ -2352,6 +2357,7 @@ void janus_sip_create_session(janus_plugin_session *handle, int *error) {
 	session->hangup_reason_header = NULL;
 	session->hangup_reason_header_protocol = NULL;
 	session->hangup_reason_header_cause = NULL;
+	session->hangup_reason_headers = NULL;
 	session->media.remote_audio_ip = NULL;
 	session->media.remote_video_ip = NULL;
 	session->media.earlymedia = FALSE;
@@ -4686,6 +4692,7 @@ static void *janus_sip_handler(void *data) {
 			result = json_object();
 			json_object_set_new(result, "event", json_string(hold ? "holding" : "resuming"));
 		} else if(!strcasecmp(request_text, "hangup")) {
+			JANUS_LOG(LOG_INFO, "[Ke] request_text hangup\n");
 			/* Hangup an ongoing call */
 			if(!janus_sip_call_is_established(session) && session->status != janus_sip_call_status_inviting && session->status != janus_sip_call_status_progress) {
 				JANUS_LOG(LOG_ERR, "Wrong state (not established/inviting/progress? status=%s)\n",
@@ -4715,7 +4722,7 @@ static void *janus_sip_handler(void *data) {
 				TAG_IF(strlen(custom_headers) > 0, SIPTAG_HEADER_STR(custom_headers)),
 				TAG_END());
 
-			JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n");
+//			JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n");
 //			if(session && session->incoming_header_prefixes) {
 //				json_t *headers = janus_sip_get_incoming_headers(sip, session);
 //			}
@@ -5328,13 +5335,18 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				if(session->hangup_reason_header_cause)
 					json_object_set_new(calling, "reason_header_cause", json_string(session->hangup_reason_header_cause));
 
-				if(session->incoming_header_prefixes) {
-					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: processing incoming SIP, extracting headers\n");
-                	json_t *headers = janus_sip_get_incoming_headers(sip, session);
-                	json_object_set_new(calling, "headers", headers);
-                } else {
-					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: no incoming_header_prefixes\n");
+				if(session->hangup_reason_headers) {
+					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: headers in session, populating...\n");
+                	json_object_set_new(calling, "headers", session->hangup_reason_headers);
 				}
+
+//				if(session->incoming_header_prefixes) {
+//					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: processing incoming SIP, extracting headers\n");
+//                	json_t *headers = janus_sip_get_incoming_headers(sip, session);
+//                	json_object_set_new(calling, "headers", headers);
+//                } else {
+//					JANUS_LOG(LOG_INFO, "[Ke] [terminate]: no incoming_header_prefixes\n");
+//				}
 
 				json_object_set_new(call, "result", calling);
 				json_object_set_new(call, "call_id", json_string(session->callid));
@@ -5361,6 +5373,12 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 						json_object_set_new(info, "reason_header_protocol", json_string(session->hangup_reason_header_protocol));
 					if(session->hangup_reason_header_cause)
 						json_object_set_new(info, "reason_header_cause", json_string(session->hangup_reason_header_cause));
+
+					if(session->hangup_reason_headers) {
+						JANUS_LOG(LOG_INFO, "[Ke] [terminate - notify]: headers in session, populating...\n");
+						json_object_set_new(calling, "headers", session->hangup_reason_headers);
+					}
+
 					gateway->notify_event(&janus_sip_plugin, session->handle, info);
 				}
 				/* Get rid of any PeerConnection that may have been set up */
@@ -5384,9 +5402,11 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				g_free(session->hangup_reason_header);
 				g_free(session->hangup_reason_header_protocol);
 				g_free(session->hangup_reason_header_cause);
+				json_decref(session->hangup_reason_headers);
 				session->hangup_reason_header = NULL;
 				session->hangup_reason_header_protocol = NULL;
 				session->hangup_reason_header_cause = NULL;
+				session->hangup_reason_headers = NULL;
 				if(g_atomic_int_get(&session->establishing) || g_atomic_int_get(&session->established)) {
 					/* Get rid of the PeerConnection in the core */
 					gateway->close_pc(session->handle);
@@ -5431,6 +5451,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
                } else {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_bye]: no incoming_header_prefixes\n");
 			}
+			JANUS_LOG(LOG_INFO, "[Ke] nua_i_bye - calling janus_sip_save_reason\n");
 			janus_sip_save_reason(sip, session);
 			break;
 		}
@@ -5444,6 +5465,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
                } else {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_cancel]: no incoming_header_prefixes\n");
 			}
+			JANUS_LOG(LOG_INFO, "[Ke] nua_i_cancel - calling janus_sip_save_reason\n");
 			janus_sip_save_reason(sip, session);
 			break;
 		}
@@ -6118,6 +6140,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					break;
 				}
 			} else if(status == 401 || status == 407) {
+				JANUS_LOG(LOG_INFO, "[Ke] nua_r_invite 410/407 - calling janus_sip_save_reason\n");
 				janus_sip_save_reason(sip, session);
 				const char *scheme = NULL;
 				const char *realm = NULL;
@@ -6178,6 +6201,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				JANUS_LOG(LOG_VERB, "Handling SDP answer in ACK\n");
 			} else if(status >= 400 && status != 700) {
 				JANUS_LOG(LOG_INFO, "[Ke] SIP Responses - nua_r_invite >= 400\n");
+				JANUS_LOG(LOG_INFO, "[Ke] nua_r_invite - calling janus_sip_save_reason\n");
 				janus_sip_save_reason(sip, session);
 				if(session && session->incoming_header_prefixes) {
                 	JANUS_LOG(LOG_INFO, "[Ke] [nua_r_invite]: processing incoming SIP, extracting headers\n");
@@ -6644,13 +6668,21 @@ void janus_sip_save_reason(sip_t const *sip, janus_sip_session *session) {
 	if(!sip || !session)
 		return;
 
-	JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n");
+	JANUS_LOG(LOG_INFO, "[Ke] Janus_sip_save_reason\n");
 	if(session && session->incoming_header_prefixes) {
 		json_t *headers = janus_sip_get_incoming_headers(sip, session);
 
-		char *dump = json_dumps(headers, JSON_INDENT(2));
-		JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_save_reason]: headers JSON:\n%s\n", dump);
-		free(dump);
+		if (headers != NULL) {
+			char *dump = json_dumps(headers, JSON_INDENT(2));
+			JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_save_reason]: headers JSON:\n%s\n", dump);
+			free(dump);
+
+			if (session->hangup_reason_headers != NULL) {
+        		json_decref(session->hangup_reason_headers);
+			}
+			JANUS_LOG(LOG_INFO, "[Ke] [janus_sip_save_reason]: assigning headers JSON to session :\n%s\n", dump);
+        	session->hangup_reason_headers = headers;
+       	}
 	}
 
 	if(sip->sip_reason && sip->sip_reason->re_text) {
