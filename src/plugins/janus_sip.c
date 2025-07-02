@@ -4716,9 +4716,9 @@ static void *janus_sip_handler(void *data) {
 				TAG_END());
 
 			JANUS_LOG(LOG_INFO, "[Ke] Request text hangup\n");
-			if(session && session->incoming_header_prefixes) {
-				json_t *headers = janus_sip_get_incoming_headers(sip, session);
-			}
+//			if(session && session->incoming_header_prefixes) {
+//				json_t *headers = janus_sip_get_incoming_headers(sip, session);
+//			}
 
 			janus_mutex_lock(&session->mutex);
 			g_free(session->callee);
@@ -5427,6 +5427,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session && session->incoming_header_prefixes) {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_bye]: processing nua_i_bye, extracting headers\n");
                	json_t *headers = janus_sip_get_incoming_headers(sip, session);
+               	json_decref(headers);
                } else {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_bye]: no incoming_header_prefixes\n");
 			}
@@ -5439,6 +5440,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session && session->incoming_header_prefixes) {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_cancel]: processing nua_i_cancel, extracting headers\n");
                	json_t *headers = janus_sip_get_incoming_headers(sip, session);
+               	json_decref(headers);
                } else {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_i_cancel]: no incoming_header_prefixes\n");
 			}
@@ -5946,6 +5948,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session && session->incoming_header_prefixes) {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_r_terminate]: processing nua_r_terminate, extracting headers\n");
             	json_t *headers = janus_sip_get_incoming_headers(sip, session);
+            	json_decref(headers);
             }
 			break;
 	/* SIP responses */
@@ -5955,6 +5958,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session && session->incoming_header_prefixes) {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_r_bye]: processing nua_r_bye, extracting headers\n");
 				json_t *headers = janus_sip_get_incoming_headers(sip, session);
+				json_decref(headers);
 			}
 			break;
 		case nua_r_cancel:
@@ -5963,6 +5967,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(session && session->incoming_header_prefixes) {
 				JANUS_LOG(LOG_INFO, "[Ke] [nua_r_cancel]: processing nua_r_cancel, extracting headers\n");
 				json_t *headers = janus_sip_get_incoming_headers(sip, session);
+				json_decref(headers);
 			}
 			break;
 		case nua_r_info:
@@ -6177,6 +6182,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				if(session && session->incoming_header_prefixes) {
                 	JANUS_LOG(LOG_INFO, "[Ke] [nua_r_invite]: processing incoming SIP, extracting headers\n");
 					json_t *headers = janus_sip_get_incoming_headers(sip, session);
+					json_decref(headers);
 				} else {
 					JANUS_LOG(LOG_INFO, "[Ke] [nua_r_invite]: no incoming_header_prefixes\n");
                 }
