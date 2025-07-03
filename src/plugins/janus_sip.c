@@ -86,6 +86,7 @@
 		"reason_header" : "<Reason header text; optional>",
 		"reason_header_protocol" : "<Reason header protocol; optional>",
 		"reason_header_cause" : "<Reason header cause code; optional>"
+		"headers" : "<object with key/value strings; custom headers extracted from SIP event based on incoming_header_prefix defined in register request; optional>"
 	}
 }
 \endverbatim
