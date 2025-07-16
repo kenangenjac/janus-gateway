@@ -5326,6 +5326,14 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
 				JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 				json_decref(call);
+
+				JANUS_LOG(LOG_INFO, "[Ke] Testing AddressSanitizer...\n");
+
+                char test[5];
+                test[10] = 'X';
+
+                JANUS_LOG(LOG_INFO, "[Ke] If you see this log, ASan didn't catch it (which would be wrong).\n");
+
 				/* Also notify event handlers */
 				if(notify_events && gateway->events_is_enabled()) {
 					JANUS_LOG(LOG_INFO, "[Ke] Event handlers are enabled\n");
