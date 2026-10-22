@@ -1354,6 +1354,7 @@ typedef struct janus_sip_session {
 	char *transaction;
 	char *callee;
 	char *callid, *local_tag;
+	janus_mutex callid_mutex;	/* Protects callid copies and replacement from use-after-free */
 	guint32 refer_id;			/* In case we were asked to transfer, keep track of the ID */
 	janus_sdp *sdp;				/* The SDP this user sent */
 	janus_recorder *arc;		/* The Janus recorder instance for this user's audio, if enabled */
@@ -1424,6 +1425,28 @@ static gboolean janus_sip_call_is_established(janus_sip_session *session) {
 }
 
 static void janus_sip_media_reset(janus_sip_session *session);
+
+static void janus_sip_callid_set(janus_sip_session *session, const char *callid) {
+	janus_mutex_lock(&session->callid_mutex);
+	char *copy = g_strdup(callid);
+	g_free(session->callid);
+	session->callid = copy;
+	janus_mutex_unlock(&session->callid_mutex);
+}
+
+static char *janus_sip_callid_dup(janus_sip_session *session) {
+	janus_mutex_lock(&session->callid_mutex);
+	char *copy = g_strdup(session->callid);
+	janus_mutex_unlock(&session->callid_mutex);
+	return copy;
+}
+
+static json_t *janus_sip_callid_json(janus_sip_session *session) {
+	janus_mutex_lock(&session->callid_mutex);
+	json_t *copy = json_string(session->callid);
+	janus_mutex_unlock(&session->callid_mutex);
+	return copy;
+}
 
 static void janus_sip_session_destroy(janus_sip_session *session) {
 	if(session && g_atomic_int_compare_and_exchange(&session->destroyed, 0, 1)) {
@@ -1507,10 +1530,8 @@ static void janus_sip_session_free(const janus_refcount *session_ref) {
 		g_free(session->callee);
 		session->callee = NULL;
 	}
-	if(session->callid) {
-		g_free(session->callid);
-		session->callid = NULL;
-	}
+	janus_sip_callid_set(session, NULL);
+	janus_mutex_destroy(&session->callid_mutex);
 	if(session->local_tag) {
 		g_free(session->local_tag);
 		session->local_tag = NULL;
@@ -2242,7 +2263,10 @@ static janus_sip_session *janus_sip_active_call_from_callid(janus_sip_session *s
 		GList *temp = needle->active_calls;
 		while(temp) {
 			janus_sip_session *s = (janus_sip_session *)temp->data;
-			if(s && s->callid && !strcasecmp(s->callid, callid)) {
+			char *active_callid = s ? janus_sip_callid_dup(s) : NULL;
+			gboolean matches = active_callid && !strcasecmp(active_callid, callid);
+			g_free(active_callid);
+			if(matches) {
 				/* Found */
 				result = s;
 				break;
@@ -2721,6 +2745,7 @@ void janus_sip_create_session(janus_plugin_session *handle, int *error) {
 	g_atomic_int_set(&session->hangingup, 0);
 	g_atomic_int_set(&session->destroyed, 0);
 	janus_mutex_init(&session->mutex);
+	janus_mutex_init(&session->callid_mutex);
 	janus_mutex_init(&session->stack_mutex);
 	janus_condition_init(&session->stack_cond);
 	handle->plugin_handle = session;
@@ -3721,7 +3746,7 @@ static void janus_sip_hangup_media_internal(janus_plugin_session *handle) {
 		json_t *result = json_object();
 		json_object_set_new(result, "event", json_string("hangingup"));
 		json_object_set_new(event, "result", result);
-		json_object_set_new(event, "call_id", json_string(session->callid));
+		json_object_set_new(event, "call_id", janus_sip_callid_json(session));
 		int ret = gateway->push_event(session->handle, &janus_sip_plugin, NULL, event, NULL);
 		JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 		json_decref(event);
@@ -4839,8 +4864,7 @@ send_invite:
 			session->callee = g_strdup(uri_text);
 			janus_mutex_unlock(&session->mutex);
 			janus_mutex_lock(&sessions_mutex);
-			g_free(session->callid);
-			session->callid = callid;
+			janus_sip_callid_set(session, callid);
 			g_free(session->local_tag);
 			session->local_tag = local_tag;
 			/* Track this call-id and tag as a caller */
@@ -4875,7 +4899,8 @@ send_invite:
 			/* Send an ack back */
 			result = json_object();
 			json_object_set_new(result, "event", json_string("calling"));
-			json_object_set_new(result, "call_id", json_string(session->callid));
+			json_object_set_new(result, "call_id", json_string(callid));
+			g_free(callid);
 			if(session->media.late_offer)
 				json_object_set_new(result, "late_offer", json_true());
 		} else if(!strcasecmp(request_text, "accept") || !strcasecmp(request_text, "progress") || !strcasecmp(request_text, "late_ack")) {
@@ -5086,8 +5111,7 @@ send_invite:
 			if(notify_events && gateway->events_is_enabled()) {
 				json_t *info = json_object();
 				json_object_set_new(info, "event", json_string(event_value));
-				if(session->callid)
-					json_object_set_new(info, "call-id", json_string(session->callid));
+				json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 				gateway->notify_event(&janus_sip_plugin, session->handle, info);
 			}
 			/* Check if the OK needs to be enriched with custom headers */
@@ -5411,8 +5435,7 @@ send_invite:
 				json_t *info = json_object();
 				json_object_set_new(info, "event", json_string("declined"));
 				json_object_set_new(info, "callee", json_string(session->callee));
-				if(session->callid)
-					json_object_set_new(info, "call-id", json_string(session->callid));
+				json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 				json_object_set_new(info, "code", json_integer(response_code));
 				gateway->notify_event(&janus_sip_plugin, session->handle, info);
 			}
@@ -5423,8 +5446,7 @@ send_invite:
 			result = json_object();
 			json_object_set_new(result, "event", json_string("declining"));
 			json_object_set_new(result, "code", json_integer(response_code));
-			if(session->callid)
-				json_object_set_new(result, "call_id", json_string(session->callid));
+			json_object_set_new(result, "call_id", janus_sip_callid_json(session));
 		} else if(!strcasecmp(request_text, "transfer")) {
 			/* Transfer an existing call */
 			JANUS_VALIDATE_JSON_OBJECT(root, transfer_parameters,
@@ -5952,7 +5974,7 @@ send_invite:
 			char *message_callid = NULL;
 			if(in_dialog_message) {
 				/* Take Call-ID, later used to report delivery status */
-				message_callid = g_strdup(session->callid) ;
+				message_callid = janus_sip_callid_dup(session);
 				nua_message(session->stack->s_nh_i,
 					SIPTAG_CONTENT_TYPE_STR(content_type),
 					SIPTAG_PAYLOAD_STR(msg_content),
@@ -6148,7 +6170,7 @@ done:
 			json_object_set_new(event, "sip", json_string("event"));
 			if(result != NULL)
 				json_object_set_new(event, "result", result);
-			json_object_set_new(event, "call_id", json_string(session->callid));
+			json_object_set_new(event, "call_id", janus_sip_callid_json(session));
 			int ret = gateway->push_event(msg->handle, &janus_sip_plugin, msg->transaction, event, NULL);
 			JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 			json_decref(event);
@@ -6163,7 +6185,7 @@ error:
 			json_object_set_new(event, "sip", json_string("event"));
 			json_object_set_new(event, "error_code", json_integer(error_code));
 			json_object_set_new(event, "error", json_string(error_cause));
-			json_object_set_new(event, "call_id", json_string(session->callid));
+			json_object_set_new(event, "call_id", janus_sip_callid_json(session));
 			int ret = gateway->push_event(msg->handle, &janus_sip_plugin, msg->transaction, event, NULL);
 			JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 			json_decref(event);
@@ -6230,7 +6252,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "event", json_string("proceeding"));
 				json_object_set_new(calling, "code", json_integer(status));
 				json_object_set_new(call, "result", calling);
-				json_object_set_new(call, "call_id", json_string(session->callid));
+				json_object_set_new(call, "call_id", janus_sip_callid_json(session));
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
 				JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 				json_decref(call);
@@ -6238,8 +6260,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				if(notify_events && gateway->events_is_enabled()) {
 					json_t *info = json_object();
 					json_object_set_new(info, "event", json_string("proceeding"));
-					if(session->callid)
-						json_object_set_new(info, "call-id", json_string(session->callid));
+					json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 					json_object_set_new(info, "code", json_integer(status));
 					gateway->notify_event(&janus_sip_plugin, session->handle, info);
 				}
@@ -6270,7 +6291,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 					json_object_set_new(calling, "headers", custom_headers_copy);
 				}
 				json_object_set_new(call, "result", calling);
-				json_object_set_new(call, "call_id", json_string(session->callid));
+				json_object_set_new(call, "call_id", janus_sip_callid_json(session));
 				int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, NULL);
 				JANUS_LOG(LOG_VERB, "  >> Pushing event: %d (%s)\n", ret, janus_get_api_error(ret));
 				json_decref(call);
@@ -6278,8 +6299,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				if(notify_events && gateway->events_is_enabled()) {
 					json_t *info = json_object();
 					json_object_set_new(info, "event", json_string("hangup"));
-					if(session->callid)
-						json_object_set_new(info, "call-id", json_string(session->callid));
+					json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 					json_object_set_new(info, "code", json_integer(status));
 					if(phrase)
 						json_object_set_new(info, "reason", json_string(phrase));
@@ -6307,8 +6327,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 						if(call->caller == NULL && call->callee == NULL)
 							g_hash_table_remove(callids, session->callid);
 					}
-					g_free(session->callid);
-					session->callid = NULL;
+					janus_sip_callid_set(session, NULL);
 				}
 				janus_mutex_unlock(&sessions_mutex);
 				g_free(session->transaction);
@@ -6485,8 +6504,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				janus_mutex_unlock(&session->mutex);
 				su_free(session->stack->s_home, caller_text);
 				janus_mutex_lock(&sessions_mutex);
-				g_free(session->callid);
-				session->callid = sip && sip->sip_call_id ? g_strdup(sip->sip_call_id->i_id) : NULL;
+				janus_sip_callid_set(session, sip && sip->sip_call_id ? sip->sip_call_id->i_id : NULL);
 				if(session->callid) {
 					/* Track this call-id and tag as a callee */
 					janus_sip_call *call = g_hash_table_lookup(callids, session->callid);
@@ -6561,8 +6579,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			json_t *calling = json_object();
 			json_object_set_new(calling, "event", json_string(reinvite ? "updatingcall" : "incomingcall"));
 			json_object_set_new(calling, "username", json_string(session->callee));
-			if(session->callid)
-				json_object_set_new(calling, "call_id", json_string(session->callid));
+			json_object_set_new(calling, "call_id", janus_sip_callid_json(session));
 			if(sip->sip_from->a_display) {
 				json_object_set_new(calling, "displayname", json_string(sip->sip_from->a_display));
 			}
@@ -6589,7 +6606,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "srtp", json_string(session->media.require_srtp ? "sdes_mandatory" : "sdes_optional"));
 			}
 			json_object_set_new(call, "result", calling);
-			json_object_set_new(call, "call_id", json_string(session->callid));
+			json_object_set_new(call, "call_id", janus_sip_callid_json(session));
 			int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, jsep);
 			JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
 			json_decref(call);
@@ -6600,8 +6617,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(notify_events && gateway->events_is_enabled()) {
 				json_t *info = json_object();
 				json_object_set_new(info, "event", json_string(reinvite ? "updatingcall" : "incomingcall"));
-				if(session->callid)
-					json_object_set_new(info, "call-id", json_string(session->callid));
+				json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 				json_object_set_new(info, "username", json_string(session->callee));
 				if(sip->sip_from->a_display)
 					json_object_set_new(info, "displayname", json_string(sip->sip_from->a_display));
@@ -6732,8 +6748,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_t *headers = janus_sip_get_incoming_headers(sip, session);
 				json_object_set_new(result, "headers", headers);
 			}
-			if(session->callid)
-				json_object_set_new(info, "call_id", json_string(session->callid));
+			json_object_set_new(info, "call_id", janus_sip_callid_json(session));
 			json_object_set_new(info, "result", result);
 			int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, info, NULL);
 			JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
@@ -6764,8 +6779,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_t *headers = janus_sip_get_incoming_headers(sip, session);
 				json_object_set_new(result, "headers", headers);
 			}
-			if(session->callid)
-				json_object_set_new(message, "call_id", json_string(session->callid));
+			json_object_set_new(message, "call_id", janus_sip_callid_json(session));
 			json_object_set_new(result, "content_type", json_string(content_type));
 			json_object_set_new(message, "result", result);
 			int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, message, NULL);
@@ -7099,7 +7113,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 							json_object_set_new(result, "headers", headers);
 						}
 						json_object_set_new(ringing, "result", result);
-						json_object_set_new(ringing, "call_id", json_string(session->callid));
+						json_object_set_new(ringing, "call_id", janus_sip_callid_json(session));
 						int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, ringing, NULL);
 						JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
 						json_decref(ringing);
@@ -7330,7 +7344,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 				json_object_set_new(calling, "headers", headers);
 			}
 			json_object_set_new(call, "result", calling);
-			json_object_set_new(call, "call_id", json_string(session->callid));
+			json_object_set_new(call, "call_id", janus_sip_callid_json(session));
 			int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, call, jsep);
 			JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
 			json_decref(call);
@@ -7340,8 +7354,7 @@ void janus_sip_sofia_callback(nua_event_t event, int status, char const *phrase,
 			if(!session->media.update && notify_events && gateway->events_is_enabled()) {
 				json_t *info = json_object();
 				json_object_set_new(info, "event", json_string(in_progress ? "progress" : "accepted"));
-				if(session->callid)
-					json_object_set_new(info, "call-id", json_string(session->callid));
+				json_object_set_new(info, "call-id", janus_sip_callid_json(session));
 				json_object_set_new(info, "username", json_string(session->callee));
 				gateway->notify_event(&janus_sip_plugin, session->handle, info);
 			}
@@ -8868,8 +8881,7 @@ static void janus_sip_check_rfc2833(janus_sip_session *session, char *buffer, in
 	json_object_set_new(result, "sender", json_string(session->callee));
 	json_object_set_new(result, "signal", json_string(dtmf_key_str));
 	json_object_set_new(result, "duration", json_integer(duration));
-	if(session->callid)
-		json_object_set_new(info, "call_id", json_string(session->callid));
+	json_object_set_new(info, "call_id", janus_sip_callid_json(session));
 	json_object_set_new(info, "result", result);
 	int ret = gateway->push_event(session->handle, &janus_sip_plugin, session->transaction, info, NULL);
 	JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
